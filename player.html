@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<title>Kabby+ Reach Player</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700&family=DM+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Player plein écran : fond noir permanent, écran d'appairage tant que la tablette n'est pas associée. */
+:root{ --ink:#05060c; --cyan:#2fd0f5; --pink:#ff4fb0; --muted:#8e94b4; --soft:#c8cbe0; --ok:#3ad69a; --bad:#ff6b6b;
+  --f-display:"Outfit",ui-sans-serif,system-ui,sans-serif; --f-body:"DM Sans",ui-sans-serif,system-ui,sans-serif; --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace; color-scheme:dark }
+*{box-sizing:border-box} [hidden]{display:none!important}
+html,body{margin:0;height:100%;background:#000;color:#fff;font-family:var(--f-body);overflow:hidden;-webkit-user-select:none;user-select:none}
+.player{position:fixed;inset:0;cursor:none}
+.player.show-ui{cursor:default}
+.stage{position:absolute;inset:0;background:#000}
+.stage img,.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .4s}
+.stage .in{opacity:1}
+@media (prefers-reduced-motion:reduce){.stage img,.stage video{transition:none}}
+.idle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px;background:radial-gradient(circle at 50% 40%,#1a1e34,#000 70%)}
+.logo{font-family:var(--f-display);font-weight:700;letter-spacing:-.03em}
+.logo i{font-style:normal;color:var(--pink)}
+.idle .logo{font-size:clamp(40px,8vw,96px)}
+.idle p{color:var(--muted);margin:0;font-size:16px}
+.pair{position:absolute;inset:0;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 30%,#1b1f3a,var(--ink) 70%)}
+.pair-in{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;max-width:760px}
+.pair .logo{font-size:clamp(28px,4vw,44px)}
+.pair .logo span{font-family:var(--f-mono);font-size:.32em;font-weight:400;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;vertical-align:middle}
+.pair-lbl{margin:18px 0 0;color:var(--muted);font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.2em;font-size:13px}
+.pair-id{white-space:nowrap;font-family:var(--f-mono);font-size:clamp(40px,9vw,120px);font-weight:500;letter-spacing:.08em;color:var(--cyan);line-height:1;text-shadow:0 0 32px rgba(47,208,245,.35)}
+.pair-steps{margin:10px 0 0;padding-left:22px;text-align:left;color:var(--soft);font-size:clamp(14px,1.8vw,18px);display:flex;flex-direction:column;gap:6px}
+.status{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:14px;margin:8px 0 0}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)}
+.ident{position:absolute;inset:0;display:grid;place-items:center;background:rgba(5,6,12,.85);border:10px solid var(--pink);text-align:center;z-index:5}
+.ident p{margin:0;color:var(--muted);font-family:var(--f-mono);letter-spacing:.2em;text-transform:uppercase}
+.ident b{display:block;font-family:var(--f-mono);font-size:clamp(48px,10vw,120px);letter-spacing:.08em}
+.ident span{font-family:var(--f-display);font-size:clamp(20px,3vw,32px);color:var(--pink)}
+@media (prefers-reduced-motion:no-preference){.ident{animation:blink 1s ease-in-out 3}}
+@keyframes blink{50%{border-color:var(--cyan)}}
+.pui{position:absolute;left:0;right:0;bottom:0;z-index:6;padding:14px max(16px,env(safe-area-inset-left,0px)) calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent,rgba(0,0,0,.85));display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.player.show-ui .pui{opacity:1;pointer-events:auto}
+.pui .info{flex:1;min-width:0;font-family:var(--f-mono);font-size:12px;color:var(--soft)}
+.pui button{font:inherit;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;cursor:pointer}
+.offline{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));right:calc(10px + env(safe-area-inset-right,0px));width:10px;height:10px;border-radius:50%;background:var(--bad);opacity:.7;z-index:4}
+</style>
+</head>
+<body>
+<div class="player" id="player">
+  <div class="stage" id="stage"></div>
+  <div class="idle" id="idle"><b class="logo">kabby<i>+</i></b><p id="idleTxt">Démarrage…</p></div>
+  <div class="pair" id="pair" hidden>
+    <div class="pair-in"><b class="logo">kabby<i>+</i> <span>Reach Player</span></b>
+      <p class="pair-lbl">Player ID</p><div class="pair-id" id="pairId"></div>
+      <ol class="pair-steps"><li>Sur votre ordinateur, ouvrez Kabby+ Reach › Écrans.</li><li>Cliquez « Associer un player » et saisissez ce Player ID.</li><li>La diffusion démarre ici automatiquement.</li></ol>
+      <p class="status" id="pairStatus"><span class="dot"></span>Connexion à la plateforme…</p></div></div>
+  <div class="ident" id="ident" hidden></div>
+  <div class="offline" id="offline" hidden title="Hors ligne : lecture depuis le cache"></div>
+  <div class="pui"><span class="info" id="info"></span><button id="fsBtn" type="button">Plein écran</button></div>
+</div>
+<script src="config.js"></script>
+<script>
+(() => {
+"use strict";
+const VERSION = "air-2.0";
+const CFG = window.KABBY_CONFIG || {};
+const SYNC_MS = (CFG.syncSeconds || 20) * 1000, REPORT_MS = (CFG.reportSeconds || 60) * 1000;
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad = n => String(n).padStart(2,"0");
+const dayKey = (d=new Date()) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const fmtPid = id => id ? id.slice(0,4)+"-"+id.slice(4) : "";
+const LS = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }, del(k){ try{ localStorage.removeItem(k); }catch(e){} } };
+const getJSON = (k, d) => { try{ return JSON.parse(LS.get(k)) ?? d; }catch(e){ return d; } };
+const rand = (n, alpha) => [...crypto.getRandomValues(new Uint8Array(n))].map(b => alpha[b % alpha.length]).join("");
+const PID_ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const SECRET_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+/* ---------- identity ---------- */
+function identity(reset=false){
+  let pid = LS.get("kabby.playerId"), sec = LS.get("kabby.secret");
+  if (reset || !/^[A-Z0-9]{8}$/.test(pid||"") || (sec||"").length < 24){ pid = rand(8, PID_ALPHA); sec = rand(40, SECRET_ALPHA); LS.set("kabby.playerId", pid); LS.set("kabby.secret", sec); }
+  return { pid, sec };
+}
+let ID = identity();
+
+/* ---------- API (Supabase RPC, clé anon) ---------- */
+async function rpc(fn, body){
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 15000);
+  try{
+    const r = await fetch(`${CFG.supabaseUrl}/rest/v1/rpc/${fn}`, { method:"POST", signal:ctl.signal,
+      headers:{ "Content-Type":"application/json", apikey:CFG.supabaseAnonKey, Authorization:`Bearer ${CFG.supabaseAnonKey}` }, body:JSON.stringify(body) });
+    const txt = await r.text(); const data = txt ? JSON.parse(txt) : null;
+    if (!r.ok){ const e = new Error(data?.message || r.statusText); e.status = r.status; e.pg = data?.message; throw e; }
+    return data;
+  } finally { clearTimeout(t); }
+}
+const pubUrl = path => `${CFG.supabaseUrl}/storage/v1/object/public/media/${path.split("/").map(encodeURIComponent).join("/")}`;
+
+/* ---------- media cache (IndexedDB) ---------- */
+const IDB = { db:null,
+  open(){ if (this.db) return Promise.resolve(this.db); return new Promise((res, rej) => { const r = indexedDB.open("kabby-reach-player", 1); r.onupgradeneeded = () => r.result.createObjectStore("media"); r.onsuccess = () => { this.db = r.result; res(r.result); }; r.onerror = () => rej(r.error); }); },
+  async tx(mode, fn){ const db = await this.open(); return new Promise((res, rej) => { const t = db.transaction("media", mode); const req = fn(t.objectStore("media")); t.oncomplete = () => res(req ? req.result : undefined); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); }); },
+  get(k){ return this.tx("readonly", s => s.get(k)); }, put(k, v){ return this.tx("readwrite", s => s.put(v, k)); },
+  del(k){ return this.tx("readwrite", s => s.delete(k)); }, keys(){ return this.tx("readonly", s => s.getAllKeys()); }
+};
+
+/* ---------- state ---------- */
+const P = {
+  cfg: getJSON("kabby.lastConfig", null),   // dernière programmation reçue (permet de démarrer hors ligne)
+  online:false, registered:false, current:null, cursor:{pl:0,item:0}, itemT:null,
+  urls:{}, cache:{ready:0,total:0,bytes:0,off:false}, syncing:false, resync:false,
+  pending: getJSON("kabby.pending", null),  // proof of play pas encore envoyé
+  lastSync:null, startedAt:Date.now()
+};
+const media = id => (P.cfg?.media || []).find(m => m.id === id);
+const playlist = id => (P.cfg?.playlists || []).find(p => p.id === id);
+const srcFor = m => P.urls[m.path] || pubUrl(m.path);
+
+/* ---------- UI ---------- */
+const ui = $("#player");
+function showUi(){ ui.classList.add("show-ui"); clearTimeout(showUi.t); showUi.t = setTimeout(() => ui.classList.remove("show-ui"), 4000); }
+ui.addEventListener("pointerdown", showUi); ui.addEventListener("mousemove", showUi);
+$("#fsBtn").onclick = e => { e.stopPropagation(); const el = document.documentElement; (el.requestFullscreen ? el.requestFullscreen() : Promise.reject()).catch(() => {}); wake(); };
+$("#pairId").textContent = fmtPid(ID.pid);
+function pairStatus(ok, txt){ $("#pairStatus").innerHTML = `<span class="dot ${ok?"ok":"bad"}"></span>${esc(txt)}`; }
+function showPairing(){ stopPlayback(); $("#idle").hidden = true; $("#pair").hidden = false; pairStatus(true, "En ligne · en attente d'association"); }
+function showIdle(txt){ $("#pair").hidden = true; $("#idle").hidden = false; $("#idleTxt").textContent = txt; }
+function bar(){
+  const c = P.current, d = P.cfg?.display, parts = ["ID " + fmtPid(ID.pid), VERSION];
+  if (d) parts.push(d.name);
+  if (c) parts.push(`${c.pl.name} › ${c.m.name}`);
+  if (P.cache.total) parts.push(`cache ${P.cache.ready}/${P.cache.total}`);
+  parts.push(P.online ? "en ligne" : "hors ligne");
+  if (P.lastSync) parts.push("synchro " + new Date(P.lastSync).toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"}));
+  $("#info").textContent = parts.join(" · ");
+  $("#offline").hidden = P.online || !P.cfg?.paired;
+}
+async function wake(){ try{ if (navigator.wakeLock && !P.wake){ P.wake = await navigator.wakeLock.request("screen"); P.wake.addEventListener("release", () => P.wake = null); } }catch(e){} }
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") wake(); });
+
+/* ---------- registration & sync ---------- */
+function deviceInfo(){ const dpr = devicePixelRatio || 1; return { ua:navigator.userAgent.slice(0,200), screen:`${Math.round(screen.width*dpr)}x${Math.round(screen.height*dpr)}`, viewport:`${innerWidth}x${innerHeight}`, lang:navigator.language, version:VERSION }; }
+async function hello(){
+  try{
+    await rpc("player_hello", { p_player_id:ID.pid, p_secret:ID.sec, p_info:deviceInfo() });
+    P.registered = true; P.online = true; return true;
+  }catch(e){
+    if (/player_id_taken/.test(e.pg || "")){ ID = identity(true); $("#pairId").textContent = fmtPid(ID.pid); return hello(); }
+    P.online = false; console.error(e);
+    if (!P.cfg?.paired){ $("#idle").hidden = true; $("#pair").hidden = false; pairStatus(false, "Pas de connexion à la plateforme, nouvel essai dans 20 s"); }
+    return false;
+  }
+}
+async function sync(){
+  if (!P.registered && !(await hello())){ bar(); return; }
+  try{
+    const res = await rpc("player_sync", { p_player_id:ID.pid, p_secret:ID.sec,
+      p_now: P.current ? { mediaId:P.current.m.id, playlistId:P.current.pl.id } : {},
+      p_cache: { ready:P.cache.ready, total:P.cache.total, bytes:P.cache.bytes, off:!!P.cache.off, offline:true } });
+    P.online = true; P.lastSync = Date.now();
+    const wasDisplay = P.cfg?.display?.id;
+    P.cfg = res; LS.set("kabby.lastConfig", JSON.stringify(res));
+    handleCommand(res.command);
+    if (!res.paired){ showPairing(); }
+    else {
+      if (wasDisplay !== res.display.id){ stopPlayback(); P.cursor = {pl:0,item:0}; }
+      scheduleCache();
+      if (!P.current) next();
+    }
+  }catch(e){
+    P.online = false; console.error(e);
+    if (/unknown_player|bad_secret/.test(e.pg || "")){ P.registered = false; if (/unknown_player/.test(e.pg)){ LS.del("kabby.lastConfig"); P.cfg = null; showPairing(); } }
+  }
+  bar();
+}
+function handleCommand(cmd){
+  if (!cmd || !cmd.at) return;
+  const last = +(LS.get("kabby.lastCmd") || 0);
+  if (cmd.at <= last) return;
+  LS.set("kabby.lastCmd", String(cmd.at));
+  if (cmd.at < P.startedAt - 10 * 60000) return;     // commande trop ancienne : ignorée
+  if (cmd.type === "identify") identify();
+  else if (cmd.type === "reload") report().finally(() => location.reload());
+  else if (cmd.type === "resync") resetCache().then(() => { stopPlayback(); P.cursor = {pl:0,item:0}; scheduleCache(0); next(); });
+}
+function identify(){
+  const el = $("#ident"); el.hidden = false;
+  el.innerHTML = `<div><p>Player ID</p><b>${esc(fmtPid(ID.pid))}</b><span>${esc(P.cfg?.display?.name || "Non associé")}${P.cfg?.display?.location ? " · " + esc(P.cfg.display.location) : ""}</span></div>`;
+  clearTimeout(identify.t); identify.t = setTimeout(() => el.hidden = true, 15000);
+}
+
+/* ---------- content cache ---------- */
+function neededMedia(){
+  const d = P.cfg?.display; if (!d) return [];
+  const seen = new Map(), today = dayKey();
+  for (const a of d.assignments || []){ if (a.end && a.end < today) continue; const p = playlist(a.playlistId); for (const it of p?.items || []){ const m = media(it.mediaId); if (m) seen.set(m.path, m); } }
+  return [...seen.values()];
+}
+function scheduleCache(delay=1000){ clearTimeout(P.cacheT); P.cacheT = setTimeout(syncCache, delay); }
+async function syncCache(){
+  if (P.syncing){ P.resync = true; return; } P.syncing = true;
+  try{
+    const need = neededMedia(); P.cache.total = need.length;
+    let keys = []; try{ keys = await IDB.keys(); }catch(e){ P.cache.off = true; }
+    for (const m of need){
+      if (P.urls[m.path]) continue;
+      let blob = null;
+      if (keys.includes(m.path)) blob = await IDB.get(m.path).catch(() => null);
+      if (!blob && P.online){ try{ const r = await fetch(pubUrl(m.path)); if (r.ok){ blob = await r.blob(); if (!P.cache.off) await IDB.put(m.path, blob).catch(() => { P.cache.off = true; }); } }catch(e){} }
+      if (blob) P.urls[m.path] = URL.createObjectURL(blob);
+      P.cache.ready = need.filter(x => P.urls[x.path]).length; bar();
+    }
+    const paths = new Set(need.map(m => m.path));
+    if (P.online) for (const k of keys) if (!paths.has(k)) IDB.del(k).catch(() => {});
+    for (const k of Object.keys(P.urls)) if (!paths.has(k) && P.current?.m?.path !== k){ URL.revokeObjectURL(P.urls[k]); delete P.urls[k]; }
+    const ok = need.filter(m => P.urls[m.path]);
+    P.cache.ready = ok.length; P.cache.bytes = ok.reduce((a, m) => a + (Number(m.size) || 0), 0);
+  } finally { P.syncing = false; bar(); if (P.resync){ P.resync = false; scheduleCache(); } }
+}
+async function resetCache(){ try{ for (const k of await IDB.keys()) await IDB.del(k); }catch(e){} Object.values(P.urls).forEach(u => URL.revokeObjectURL(u)); P.urls = {}; P.cache = {ready:0,total:0,bytes:0,off:false}; }
+
+/* ---------- playback ---------- */
+const isActive = (a, t=dayKey()) => (!a.start || a.start <= t) && (!a.end || a.end >= t);
+const valid = p => (p.items || []).filter(i => media(i.mediaId));
+function activePlaylists(){
+  const d = P.cfg?.display; if (!d) return [];
+  return (d.assignments || []).filter(a => isActive(a)).sort((a, b) => (b.priority||0) - (a.priority||0)).map(a => playlist(a.playlistId)).filter(p => p && valid(p).length);
+}
+function stopPlayback(){ clearTimeout(P.itemT); P.current = null; $("#stage").innerHTML = ""; }
+function next(){
+  clearTimeout(P.itemT);
+  if (!P.cfg?.paired){ return; }
+  const pls = activePlaylists();
+  if (!pls.length){ P.current = null; $("#stage").innerHTML = ""; showIdle(`${P.cfg.display.name} · aucune playlist programmée aujourd'hui`); P.itemT = setTimeout(next, 15000); bar(); return; }
+  // Priorité la plus haute d'abord ; une playlist en boucle se répète, une playlist « 1 passage » passe la main à la suivante.
+  let pi = P.cursor.pl, ii = P.cursor.item;
+  if (pi >= pls.length){ pi = 0; ii = 0; }
+  if (ii >= valid(pls[pi]).length){ ii = 0; if (pls[pi].loop === false) pi = (pi + 1) % pls.length; }
+  const pl = pls[pi], it = valid(pl)[ii];
+  P.cursor = { pl:pi, item:ii + 1 };
+  play(pl, it);
+}
+function play(pl, it){
+  const m = media(it.mediaId), stage = $("#stage");
+  $("#pair").hidden = true; $("#idle").hidden = true;
+  const started = Date.now(); P.current = { pl, it, m }; bar();
+  let done = false;
+  const finish = complete => { if (done) return; done = true; const secs = (Date.now() - started) / 1000; record(m.id, complete, complete && m.type === "video" ? (Number(m.duration) || secs) : secs); P.current = null; next(); };
+  const swap = el => { const old = [...stage.children]; stage.appendChild(el); requestAnimationFrame(() => el.classList.add("in")); setTimeout(() => old.forEach(o => { if (o.tagName === "VIDEO"){ o.pause(); o.removeAttribute("src"); o.load(); } o.remove(); }), 450); };
+  if (m.type === "image"){
+    const img = new Image(); img.alt = ""; img.decoding = "async";
+    img.onload = () => { swap(img); P.itemT = setTimeout(() => finish(true), (Number(it.duration) || 10) * 1000); };
+    img.onerror = () => { P.itemT = setTimeout(() => finish(false), 1000); };
+    img.src = srcFor(m);
+  } else {
+    const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.setAttribute("playsinline", ""); v.preload = "auto";
+    v.onended = () => finish(true);
+    v.onerror = () => { P.itemT = setTimeout(() => finish(false), 1000); };
+    v.oncanplay = () => { v.oncanplay = null; swap(v); v.play().catch(() => {}); };
+    v.src = srcFor(m);
+    P.itemT = setTimeout(() => finish(false), ((Number(m.duration) || 60) + 20) * 1000);
+  }
+}
+
+/* ---------- proof of play ---------- */
+function record(mediaId, complete, secs){
+  const did = P.cfg?.display?.id; if (!did) return;
+  const day = dayKey();
+  if (!P.pending || P.pending.day !== day || P.pending.displayId !== did){ if (P.pending) queueBatch(P.pending); P.pending = { day, displayId:did, rows:{}, hours:{} }; }
+  const r = P.pending.rows[mediaId] ||= { plays:0, complete:0, seconds:0 };
+  r.plays++; if (complete) r.complete++; r.seconds = Math.round((r.seconds + secs) * 10) / 10;
+  const h = new Date().getHours(); P.pending.hours[h] = (P.pending.hours[h] || 0) + 1;
+  LS.set("kabby.pending", JSON.stringify(P.pending));
+}
+// Lots prêts à partir : gardés en mémoire locale jusqu'à confirmation du serveur (idempotent grâce au batchId).
+function queueBatch(p){ if (!p || !Object.keys(p.rows).length) return; const q = getJSON("kabby.outbox", []); q.push({ ...p, batchId: rand(16, SECRET_ALPHA) }); LS.set("kabby.outbox", JSON.stringify(q.slice(-500))); }
+let reporting = false;
+async function report(){
+  if (reporting || !P.registered) return; reporting = true;
+  try{
+    if (P.pending){ queueBatch(P.pending); P.pending = null; LS.del("kabby.pending"); }
+    let q = getJSON("kabby.outbox", []);
+    while (q.length){
+      const b = q[0];
+      await rpc("player_report", { p_player_id:ID.pid, p_secret:ID.sec, p_batch_id:b.batchId, p_display_id:b.displayId, p_day:b.day,
+        p_rows: Object.entries(b.rows).map(([mediaId, v]) => ({ mediaId, ...v })), p_hours:b.hours });
+      q.shift(); LS.set("kabby.outbox", JSON.stringify(q));
+    }
+  }catch(e){ console.error(e); }
+  finally { reporting = false; }
+}
+window.addEventListener("pagehide", () => { if (P.pending){ queueBatch(P.pending); P.pending = null; LS.del("kabby.pending"); } });
+
+/* ---------- boot ---------- */
+async function boot(){
+  if (!CFG.supabaseUrl || /VOTRE-PROJET/.test(CFG.supabaseUrl)){ showIdle("Configuration manquante : renseignez config.js."); return; }
+  wake();
+  if (P.cfg?.paired){ scheduleCache(0); next(); }          // démarrage hors ligne avec la dernière programmation
+  else { $("#idle").hidden = true; $("#pair").hidden = false; }
+  await hello(); await sync(); report();
+  setInterval(sync, SYNC_MS);
+  setInterval(report, REPORT_MS);
+  setInterval(() => { if (!P.current && P.cfg?.paired) next(); }, 60000);   // filet de sécurité
+  bar();
+}
+boot();
+})();
+</script>
+</body>
+</html>

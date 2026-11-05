@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kabby+ Reach</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+html,body{margin:0}
+
+/* Layout: control-room shell — slim nav rail on the left, dense working canvas on the right; player view takes the whole frame. */
+:root{
+  --bg:#f3f4f8; --panel:#ffffff; --panel-2:#eceef5; --line:#dcdfea; --fg:#141726; --muted:#5d6279;
+  --accent:#0a8fb3; --accent-ink:#ffffff; --neon:#c2187a; --good:#16875a; --warn:#b26a00; --bad:#c23a3a;
+  --shadow:0 1px 2px rgba(20,23,38,.06),0 6px 20px rgba(20,23,38,.05);
+  --f-display:"Outfit",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"DM Sans",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0b0d17; --panel:#131628; --panel-2:#1a1e34; --line:#262b46; --fg:#e8eaf6; --muted:#8e94b4;
+  --accent:#2fd0f5; --accent-ink:#06121a; --neon:#ff4fb0; --good:#3ad69a; --warn:#f5b74a; --bad:#ff6b6b;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b0d17; --panel:#131628; --panel-2:#1a1e34; --line:#262b46; --fg:#e8eaf6; --muted:#8e94b4;
+  --accent:#2fd0f5; --accent-ink:#06121a; --neon:#ff4fb0; --good:#3ad69a; --warn:#f5b74a; --bad:#ff6b6b;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25); color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.5}
+button,input,select{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+.mono,.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100%}
+.rail{background:var(--panel);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:baseline;gap:8px;padding:0 8px}
+.brand b{font-family:var(--f-display);font-size:24px;font-weight:700;letter-spacing:-.02em}
+.brand b i{font-style:normal;color:var(--neon)}
+.brand span{font-family:var(--f-mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-weight:500}
+.nav a:hover{background:var(--panel-2);color:var(--fg)}
+.nav a.on{background:var(--panel-2);color:var(--fg)}
+.nav a.on svg{color:var(--accent)}
+.nav svg{width:18px;height:18px;flex:none}
+.rail-foot{margin-top:auto;font-size:12px;color:var(--muted);padding:0 8px;display:flex;flex-direction:column;gap:6px}
+.sync{display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.dot.ok{background:var(--good);box-shadow:0 0 0 3px color-mix(in srgb,var(--good) 20%,transparent)}
+.dot.bad{background:var(--bad)}
+
+main{padding-block:28px 60px;padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px));min-width:0;display:flex;flex-direction:column;gap:22px;max-width:1280px}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.head h1{font-size:28px;font-weight:600}
+.head p{margin:2px 0 0;color:var(--muted)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--panel);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.pri:hover{filter:brightness(1.07)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--fg);background:var(--panel-2)}
+.btn.danger{color:var(--bad)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn svg{width:16px;height:16px}
+.icon-btn{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:6px;border-radius:6px;display:inline-grid;place-items:center}
+.icon-btn:hover{background:var(--panel-2);color:var(--fg)}
+.icon-btn svg{width:16px;height:16px}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+.kpi .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.kpi .val{font-family:var(--f-display);font-size:30px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.15}
+.kpi .sub{font-size:12px;color:var(--muted)}
+.kpi.hl .val{color:var(--accent)}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel h2{font-size:17px;font-weight:600}
+.panel .ph{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.panel .ph p{margin:0;color:var(--muted);font-size:13px}
+.grid2{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:16px}
+
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--panel-2);color:var(--muted);white-space:nowrap}
+.pill.on{color:var(--good);background:color-mix(in srgb,var(--good) 14%,transparent)}
+.pill.off{color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,transparent)}
+.pill.vid{color:var(--neon);background:color-mix(in srgb,var(--neon) 12%,transparent)}
+.pill.img{color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.pill .dot{width:6px;height:6px}
+.pill.on .dot{background:var(--good)} .pill.off .dot{background:var(--bad)}
+
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+.empty{color:var(--muted);text-align:center;padding:28px 12px;font-size:13px}
+
+.drop{border:1.5px dashed var(--line);border-radius:var(--r);padding:26px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--muted);cursor:pointer;background:var(--panel)}
+.drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--panel));color:var(--fg)}
+.drop strong{color:var(--fg);font-weight:600}
+.drop svg{width:28px;height:28px;color:var(--accent)}
+.uploads{display:flex;flex-direction:column;gap:6px}
+.up{display:flex;align-items:center;gap:10px;font-size:13px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.up .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spin{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:3s}}
+
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:4px 12px;cursor:pointer;font-size:13px;color:var(--muted)}
+.chip.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.mcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
+.thumb{aspect-ratio:16/9;background:#05060c;position:relative;max-width:100%;overflow:hidden}
+.thumb img,.thumb video{width:100%;height:100%;object-fit:contain;display:block}
+.thumb .pill{position:absolute;top:8px;left:8px;background:rgba(5,6,12,.75);color:#fff}
+.thumb .dur{position:absolute;bottom:8px;right:8px;font-family:var(--f-mono);font-size:11px;background:rgba(5,6,12,.75);color:#fff;padding:1px 6px;border-radius:4px}
+.mcard .meta{padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.mcard .meta b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mcard .meta span{font-size:12px;color:var(--muted);font-family:var(--f-mono)}
+.mcard .act{display:flex;justify-content:flex-end;padding:0 6px 6px;margin-top:auto}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card h3{font-size:17px;font-weight:600}
+.card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.card .sub{color:var(--muted);font-size:13px}
+.specs{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;font-size:13px}
+.specs dt{color:var(--muted)}
+.specs dd{margin:0;font-family:var(--f-mono);font-size:12.5px;min-width:0;overflow-wrap:anywhere}
+.strip{display:flex;gap:3px;height:34px;border-radius:6px;overflow:hidden;background:var(--panel-2)}
+.strip div{flex:1;background-size:cover;background-position:center;min-width:6px}
+.card .foot{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:4px}
+.assign-list{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.assign-list div{display:flex;justify-content:space-between;gap:8px}
+.assign-list .when{color:var(--muted);font-family:var(--f-mono);font-size:11.5px}
+
+.chart svg{width:100%;height:auto;display:block}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+
+/* modal */
+.scrim{position:fixed;inset:0;background:rgba(5,6,12,.55);display:grid;place-items:center;z-index:50;padding:16px}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:min(560px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;box-shadow:var(--shadow)}
+.modal.wide{width:min(1040px,100%)}
+.modal header{padding:18px 20px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.modal header h2{font-size:20px}
+.modal header p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.modal .body{padding:16px 20px;overflow:auto;display:flex;flex-direction:column;gap:14px;min-height:0}
+.modal footer{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;align-items:center;flex-wrap:wrap}
+.modal footer .grow{margin-right:auto;color:var(--muted);font-size:13px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label{font-size:12px;font-weight:600;color:var(--muted)}
+.field input,.field select,.inp{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.check{display:flex;align-items:center;gap:8px;font-size:14px}
+.hint{font-size:12px;color:var(--muted);margin:0}
+
+.editor{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:16px;min-height:0}
+.lib,.seq{border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;min-height:0;max-height:52vh}
+.lib h3,.seq h3{font-size:13px;font-family:var(--f-body);font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+.lib-list,.seq-list{overflow:auto;padding:6px;display:flex;flex-direction:column;gap:4px}
+.li{display:flex;align-items:center;gap:10px;padding:6px;border-radius:8px;border:1px solid transparent;background:var(--panel)}
+.li:hover{background:var(--panel-2)}
+.li .mini{width:64px;aspect-ratio:16/9;border-radius:4px;background:#05060c;flex:none;overflow:hidden}
+.li .mini img,.li .mini video{width:100%;height:100%;object-fit:cover;display:block}
+.li .nm{flex:1;min-width:0;display:flex;flex-direction:column}
+.li .nm b{font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.li .nm span{font-size:11.5px;color:var(--muted);font-family:var(--f-mono)}
+.li.drag{opacity:.4}
+.li.dropto{border-color:var(--accent)}
+.grip{cursor:grab;color:var(--muted);padding:0 2px;display:grid;place-items:center}
+.grip svg{width:14px;height:14px}
+.idx{font-family:var(--f-mono);font-size:11px;color:var(--muted);width:18px;text-align:right}
+.dur-in{width:72px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:4px 6px;text-align:right;font-family:var(--f-mono);font-size:12px}
+.arow{display:grid;grid-template-columns:minmax(0,2fr) 80px minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:end}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:13px;z-index:80;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+.banner{background:color-mix(in srgb,var(--warn) 14%,var(--panel));border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);border-radius:var(--r);padding:12px 14px;font-size:13px}
+.code{font-family:var(--f-mono);font-size:12px;background:var(--panel-2);padding:2px 6px;border-radius:4px;user-select:all;overflow-wrap:anywhere}
+
+
+/* players & pairing */
+.pid{font-family:var(--f-mono);font-weight:500;letter-spacing:.06em;font-size:13px;background:var(--panel-2);padding:2px 8px;border-radius:5px;white-space:nowrap}
+.pid-in{font-family:var(--f-mono);font-size:22px!important;letter-spacing:.12em;text-transform:uppercase;text-align:center}
+.pbox{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;background:var(--bg)}
+.pbox.none{flex-direction:row;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-style:dashed}
+.pbox-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pbox-a{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.pair{position:absolute;inset:0;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 30%,#1b1f3a,#05060c 70%)}
+.pair-in{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;max-width:720px}
+.pair-logo{font-family:var(--f-display);font-size:clamp(28px,4vw,44px);font-weight:700;letter-spacing:-.02em}
+.pair-logo i{font-style:normal;color:#ff4fb0}
+.pair-logo span{font-family:var(--f-mono);font-size:.32em;font-weight:400;color:#8e94b4;letter-spacing:.12em;text-transform:uppercase;vertical-align:middle}
+.pair-lbl{margin:18px 0 0;color:#8e94b4;font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.2em;font-size:13px}
+.pair-id{white-space:nowrap;font-family:var(--f-mono);font-size:clamp(40px,9vw,120px);font-weight:500;letter-spacing:.08em;color:#2fd0f5;line-height:1;text-shadow:0 0 32px rgba(47,208,245,.35)}
+.pair-steps{margin:10px 0 0;padding-left:22px;text-align:left;color:#c8cbe0;font-size:clamp(14px,1.8vw,18px);display:flex;flex-direction:column;gap:6px}
+.pair-status{display:flex;align-items:center;gap:8px;color:#8e94b4;font-size:14px;margin:8px 0 0}
+.ident{position:absolute;inset:0;display:grid;place-items:center;background:rgba(5,6,12,.82);border:10px solid #ff4fb0;text-align:center}
+.ident p{margin:0;color:#8e94b4;font-family:var(--f-mono);letter-spacing:.2em;text-transform:uppercase}
+.ident b{display:block;font-family:var(--f-mono);font-size:clamp(48px,10vw,120px);color:#fff;letter-spacing:.08em}
+.ident span{font-family:var(--f-display);font-size:clamp(20px,3vw,32px);color:#ff4fb0}
+@media (prefers-reduced-motion:no-preference){.ident{animation:blink 1s ease-in-out 3}}
+@keyframes blink{50%{border-color:#2fd0f5}}
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .rail{position:sticky;top:env(safe-area-inset-top,0px);height:auto;z-index:20;flex-direction:row;align-items:center;gap:12px;padding:10px max(16px,env(safe-area-inset-left,0px)) 10px max(16px,env(safe-area-inset-left,0px));border-right:0;border-bottom:1px solid var(--line);overflow-x:auto}
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+  .brand span,.rail-foot{display:none}
+  .nav{flex-direction:row}
+  .nav a{padding:7px 10px}
+  .nav a span{display:none}
+  main{padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .grid2,.editor{grid-template-columns:minmax(0,1fr)}
+  .fgrid{grid-template-columns:1fr}
+  .arow{grid-template-columns:1fr 1fr}
+  .lib,.seq{max-height:40vh}
+}
+
+
+.login{min-height:100%;display:grid;place-items:center;padding-block:40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.login form,.login .box{width:min(380px,100%);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--shadow)}
+.login .brand{padding:0;margin-bottom:6px}
+.login .msg{color:var(--bad);font-size:13px;min-height:1em;margin:0}
+.who{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+</style>
+</head>
+<body>
+<div class="login" id="login" hidden>
+  <form id="loginForm">
+    <div class="brand"><b>kabby<i>+</i></b><span>Reach</span></div>
+    <div class="field"><label for="lEmail">E-mail</label><input id="lEmail" type="email" autocomplete="username" required></div>
+    <div class="field"><label for="lPass">Mot de passe</label><input id="lPass" type="password" autocomplete="current-password" required></div>
+    <button class="btn pri" id="loginGo" type="submit" style="justify-content:center">Se connecter</button>
+    <button class="btn ghost" id="signupGo" type="button" style="justify-content:center">Première fois ? Créer mon accès</button>
+    <p class="msg" id="loginMsg" role="alert"></p>
+  </form>
+</div>
+<div id="app" class="app" hidden>
+  <aside class="rail">
+    <div class="brand"><b>kabby<i>+</i></b><span>Reach</span></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="rail-foot">
+      <div class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">Connexion…</span></div>
+      <div class="who" id="who"></div>
+      <button class="btn sm ghost" id="logout" style="align-self:flex-start;padding-left:0">Se déconnecter</button>
+    </div>
+  </aside>
+  <main id="main"></main>
+</div>
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+(() => {
+"use strict";
+const CFG = window.KABBY_CONFIG || {};
+/* ---------- helpers ---------- */
+const $ = (s, r=document) => r.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad = n => String(n).padStart(2,"0");
+const dayKey = (d=new Date()) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const addDays = (n, d=new Date()) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const fmtInt = n => Math.round(Number(n)||0).toLocaleString("fr-FR");
+const fmtBytes = b => { b=Number(b)||0; if (b<1024) return b+" o"; if (b<1048576) return (b/1024).toFixed(1)+" Ko"; if (b<1073741824) return (b/1048576).toFixed(2)+" Mo"; return (b/1073741824).toFixed(2)+" Go"; };
+const fmtSec = s => { s=Math.round(Number(s)||0); if (s<60) return s+" s"; const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), r=s%60; return h ? `${h} h ${pad(m)}` : `${m} min ${pad(r)}`; };
+const fmtClock = s => { s=Math.round(Number(s)||0); return `${Math.floor(s/60)}:${pad(s%60)}`; };
+const ts = v => v ? new Date(v).getTime() : 0;
+const fmtAgo = v => { const t=ts(v); if (!t) return "jamais"; const s=(Date.now()-t)/1000; if (s<60) return "à l'instant"; if (s<3600) return `il y a ${Math.floor(s/60)} min`; if (s<86400) return `il y a ${Math.floor(s/3600)} h`; return `il y a ${Math.floor(s/86400)} j`; };
+const fmtDay = k => { const [y,m,d]=String(k).split("-"); return `${d}/${m}`; };
+const fmtPid = id => id ? id.slice(0,4)+"-"+id.slice(4) : "";
+const normPid = s => String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+const ONLINE_MS = 3*60*1000;
+
+const ICONS = {
+  dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+  media:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>',
+  list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h11M4 12h11M4 18h7"/><path d="m16 15 5 3-5 3z" fill="currentColor"/></svg>',
+  screen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
+  report:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+  up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  grip:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
+  upA:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 15 6-6 6 6"/></svg>',
+  dnA:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>',
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  dl:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>',
+  out:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>'
+};
+const VIEWS = [["dashboard","Dashboard","dash"],["media","Médias","media"],["playlists","Playlists","list"],["displays","Écrans","screen"],["reports","Reporting","report"]];
+
+/* ---------- state ---------- */
+const S = { media:[], playlists:[], displays:[], devices:[], loaded:false, sb:null, user:null,
+  mediaFilter:"all", uploads:[], range:7, repDisplay:"all", rep:{}, status:"loading" };
+const mediaById = id => S.media.find(m => m.id === id);
+const plById = id => S.playlists.find(p => p.id === id);
+const dispById = id => S.displays.find(d => d.id === id);
+const pubUrl = path => `${CFG.supabaseUrl}/storage/v1/object/public/media/${path.split("/").map(encodeURIComponent).join("/")}`;
+const thumbUrl = m => m ? pubUrl(m.path) : "";
+const itemDuration = it => { const m = mediaById(it.mediaId); if (!m) return 0; return m.type === "video" ? (Number(m.duration) || Number(it.duration) || 0) : (Number(it.duration) || 10); };
+const plDuration = p => (p.items||[]).reduce((a,it) => a + itemDuration(it), 0);
+const devOf = d => S.devices.find(v => v.display_id === d.id) || null;
+const devOnline = v => !!v && Date.now() - ts(v.last_seen) < ONLINE_MS;
+const isOnline = d => devOnline(devOf(d));
+const nowOf = d => { const v=devOf(d); if(!devOnline(v)) return ""; const mid=v.now_playing?.mediaId; return mid ? (mediaById(mid)?.name||"") : ""; };
+const isActiveAssign = (a, today=dayKey()) => (!a.start || a.start <= today) && (!a.end || a.end >= today);
+
+function toast(msg){ const r=$("#toastRoot"); r.innerHTML=`<div class="toast" role="status">${esc(msg)}</div>`; clearTimeout(toast.t); toast.t=setTimeout(()=>r.innerHTML="",3200); }
+function fail(e, what="L'enregistrement"){ console.error(e); const m=String(e?.message||e||""); toast(/row-level security|permission|forbidden|42501/i.test(m) ? "Action refusée : votre compte n'est pas dans l'équipe autorisée." : /Payload too large|exceeded the maximum/i.test(m) ? "Fichier trop lourd pour votre offre Supabase." : `${what} a échoué : ${m.slice(0,120)}`); }
+async function q(promise){ const { data, error } = await promise; if (error) throw error; return data; }
+
+/* ---------- data ---------- */
+async function loadAll(){
+  const sb=S.sb;
+  try{
+    const [media, playlists, displays, devices] = await Promise.all([
+      q(sb.from("media").select("*").order("created_at",{ascending:false})),
+      q(sb.from("playlists").select("*").order("updated_at",{ascending:false})),
+      q(sb.from("displays").select("*").order("name")),
+      q(sb.from("devices").select("player_id,display_id,info,cache,now_playing,command,last_seen,paired_at,created_at").order("last_seen",{ascending:false, nullsFirst:false}))
+    ]);
+    Object.assign(S,{media,playlists,displays,devices,loaded:true,status:"ready"}); setSync(true,"Synchronisé");
+  }catch(e){ console.error(e); S.status="error"; setSync(false,"Connexion perdue"); }
+  render(); if(ED && $("#libList")) drawLib();
+}
+const repKey = (from,to,disp) => `${from}|${to}|${disp}`;
+async function loadReport(from,to,disp="all",force=false){
+  const k=repKey(from,to,disp);
+  if (S.rep[k] && !force && Date.now()-S.rep[k].at<30000) return S.rep[k].data;
+  if (S.rep[k]?.pending) return S.rep[k].data;
+  S.rep[k]={...(S.rep[k]||{}), pending:true};
+  try{
+    const data=await q(S.sb.rpc("report_summary",{p_from:from,p_to:to,p_display:disp==="all"?null:disp}));
+    S.rep[k]={data,at:Date.now()};
+  }catch(e){ console.error(e); S.rep[k]={data:S.rep[k]?.data||null, at:Date.now()}; }
+  render(); return S.rep[k].data;
+}
+function rep(from,to,disp="all"){ const r=S.rep[repKey(from,to,disp)]; if(!r || (!r.pending && Date.now()-r.at>30000)) loadReport(from,to,disp); return r?.data || null; }
+
+/* ---------- routing ---------- */
+function currentView(){ const h=location.hash.slice(1); return VIEWS.some(v=>v[0]===h) ? h : "dashboard"; }
+window.addEventListener("hashchange", ()=>{ renderNav(); render(); });
+function renderNav(){
+  const v=currentView();
+  $("#nav").innerHTML = VIEWS.map(([k,l,i]) => `<a href="#${k}" class="${v===k?"on":""}" aria-current="${v===k?"page":"false"}">${ICONS[i]}<span>${l}</span></a>`).join("");
+}
+function setSync(ok,txt){ $("#syncDot").className="dot "+(ok?"ok":"bad"); $("#syncTxt").textContent=txt; }
+
+/* ---------- render ---------- */
+function render(){
+  if (!S.user) return;
+  const v=currentView(); const m=$("#main");
+  const banner = S.status==="error" ? `<div class="banner">Impossible de joindre Supabase. Vérifiez la connexion et le fichier config.js ; nouvel essai automatique toutes les 20 s.</div>` : "";
+  const html = ({dashboard:vDashboard, media:vMedia, playlists:vPlaylists, displays:vDisplays, reports:vReports}[v] || vDashboard)();
+  const y=window.scrollY; m.innerHTML = banner + html; window.scrollTo(0,y);
+  bindView(v);
+}
+function head(title, sub, actions=""){ return `<div class="head"><div><h1>${title}</h1><p>${sub}</p></div><div class="row">${actions}</div></div>`; }
+function niceStep(max){ const raw=max/4; const p=Math.pow(10,Math.floor(Math.log10(raw))); const n=raw/p; return Math.max(1,(n<=1?1:n<=2?2:n<=5?5:10)*p); }
+function barChart(series, opts={}){
+  const W=640, H=220, L=44, R=10, T=12, B=28;
+  const max = Math.max(1, ...series.map(s=>s.a));
+  const step = niceStep(max); const top = Math.ceil(max/step)*step;
+  const iw=W-L-R, ih=H-T-B, bw=iw/series.length;
+  const y = v => T + ih - (v/top)*ih;
+  let g="";
+  for (let v=0; v<=top; v+=step){ g+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end" font-size="10" fill="var(--muted)" font-family="JetBrains Mono,monospace">${fmtInt(v)}</text>`; }
+  const every = Math.ceil(series.length/(opts.maxLabels||10));
+  series.forEach((s,i)=>{
+    const x=L+i*bw, w=Math.max(2,bw*0.62), cx=x+(bw-w)/2;
+    g+=`<rect x="${cx}" y="${y(s.a)}" width="${w}" height="${Math.max(0,T+ih-y(s.a))}" rx="2" fill="color-mix(in srgb, var(--accent) 30%, transparent)"><title>${esc(s.label)} : ${fmtInt(s.a)} diffusions</title></rect>`;
+    if (s.b!=null) g+=`<rect x="${cx}" y="${y(s.b)}" width="${w}" height="${Math.max(0,T+ih-y(s.b))}" rx="2" fill="var(--accent)"><title>${esc(s.label)} : ${fmtInt(s.b)} complètes</title></rect>`;
+    if (i%every===0) g+=`<text x="${x+bw/2}" y="${H-9}" text-anchor="middle" font-size="10" fill="var(--muted)" font-family="JetBrains Mono,monospace">${esc(s.label)}</text>`;
+  });
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.aria||"Graphique")}">${g}</svg></div>`;
+}
+function daySeries(r, n){ const by=Object.fromEntries((r?.days||[]).map(d=>[d.day,d])); const out=[]; for (let i=n-1;i>=0;i--){ const k=dayKey(addDays(-i)); const d=by[k]||{plays:0,complete:0}; out.push({label:fmtDay(k), a:+d.plays, b:+d.complete}); } return out; }
+const legend = `<div class="legend"><span><i style="background:color-mix(in srgb,var(--accent) 30%,transparent)"></i>Diffusions</span><span><i style="background:var(--accent)"></i>Diffusions complètes</span></div>`;
+const T0 = {plays:0,complete:0,seconds:0,impressions:0};
+const onPill = `<span class="pill on"><span class="dot"></span>En ligne</span>`;
+function statusPill(d){ const v=devOf(d); if (devOnline(v)) return onPill; if (!v) return `<span class="pill">Sans player</span>`; return `<span class="pill off" title="Dernier signal : ${esc(fmtAgo(v.last_seen))}"><span class="dot"></span>Hors ligne</span>`; }
+
+/* Dashboard */
+function vDashboard(){
+  const today=dayKey(), from7=dayKey(addDays(-6));
+  const rT=rep(today,today), r7=rep(from7,today);
+  const tT=rT?.totals||T0; const byD=Object.fromEntries((r7?.displays||[]).map(x=>[x.display_id,x]));
+  const online=S.displays.filter(isOnline).length;
+  const rows = S.displays.map(d=>{ const p=byD[d.id]||T0; const now=nowOf(d);
+    return `<tr><td><b>${esc(d.name)}</b><div class="hint">${esc(d.location||"—")}</div></td><td>${statusPill(d)}</td><td>${now?esc(now):'<span class="hint">—</span>'}</td><td class="n">${fmtInt(p.plays)}</td><td class="n">${fmtInt(p.impressions)}</td><td class="n">${fmtSec(p.seconds)}</td></tr>`; }).join("");
+  return head("Dashboard","Vue d'ensemble du réseau kabby+") + `
+  <div class="kpis">
+    <div class="kpi"><span class="lbl">Écrans en ligne</span><span class="val num">${online}<span style="color:var(--muted);font-size:18px"> / ${S.displays.length}</span></span><span class="sub">signal reçu il y a moins de 3 min</span></div>
+    <div class="kpi hl"><span class="lbl">Diffusions aujourd'hui</span><span class="val num">${fmtInt(tT.plays)}</span><span class="sub">${fmtInt(tT.complete)} complètes</span></div>
+    <div class="kpi"><span class="lbl">Impressions aujourd'hui</span><span class="val num">${fmtInt(tT.impressions)}</span><span class="sub">diffusions × audience par écran</span></div>
+    <div class="kpi"><span class="lbl">Contenus</span><span class="val num">${S.media.length}</span><span class="sub">${S.playlists.length} playlist${S.playlists.length>1?"s":""}</span></div>
+  </div>
+  <div class="grid2">
+    <section class="panel"><div class="ph"><h2>Diffusions, 7 derniers jours</h2>${legend}</div>${barChart(daySeries(r7,7),{aria:"Diffusions par jour sur 7 jours"})}</section>
+    <section class="panel"><div class="ph"><h2>Pour démarrer</h2></div>
+      <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;color:var(--muted)">
+        <li><a href="#media" style="color:var(--fg)">Importez vos vidéos et visuels</a> dans la médiathèque.</li>
+        <li><a href="#playlists" style="color:var(--fg)">Composez une playlist</a> et réglez la durée des images.</li>
+        <li><a href="#displays" style="color:var(--fg)">Créez un écran, programmez la playlist</a> et associez le Player ID affiché par la tablette.</li>
+        <li>Chaque diffusion remonte ensuite dans le reporting.</li>
+      </ol></section>
+  </div>
+  <section class="panel"><div class="ph"><h2>Performance des écrans</h2><p>7 derniers jours</p></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Écran</th><th>Statut</th><th>En diffusion</th><th class="n">Diffusions</th><th class="n">Impressions</th><th class="n">Temps d'antenne</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="6" class="empty">${S.loaded?"Aucun écran. Ajoutez-en un dans l'onglet Écrans.":"Chargement des écrans…"}</td></tr>`}</tbody></table></div></section>`;
+}
+
+/* Media */
+function vMedia(){
+  const imgs=S.media.filter(m=>m.type==="image"), vids=S.media.filter(m=>m.type==="video");
+  const bytes=S.media.reduce((a,m)=>a+(Number(m.size)||0),0);
+  const list = S.media.filter(m=>S.mediaFilter==="all"||m.type===S.mediaFilter);
+  const cards = list.map(m=>`<article class="mcard">
+      <div class="thumb">${m.type==="video" ? `<video src="${thumbUrl(m)}#t=0.5" muted preload="metadata" playsinline></video>` : `<img src="${thumbUrl(m)}" alt="" loading="lazy">`}
+        <span class="pill">${m.type==="video"?"Vidéo":"Image"}</span>${m.type==="video"?`<span class="dur">${fmtClock(m.duration)}</span>`:""}</div>
+      <div class="meta"><b title="${esc(m.name)}">${esc(m.name)}</b><span>${m.width&&m.height?`${m.width}×${m.height} · `:""}${fmtBytes(m.size)}</span></div>
+      <div class="act"><button class="icon-btn" data-del-media="${esc(m.id)}" aria-label="Supprimer ${esc(m.name)}">${ICONS.trash}</button></div>
+    </article>`).join("");
+  return head("Médiathèque","Vidéos et visuels prêts à diffuser") + `
+  <div class="kpis">
+    <div class="kpi"><span class="lbl">Vidéos</span><span class="val num">${vids.length}</span><span class="sub">${fmtSec(vids.reduce((a,m)=>a+(Number(m.duration)||0),0))} de contenu</span></div>
+    <div class="kpi"><span class="lbl">Images</span><span class="val num">${imgs.length}</span><span class="sub">durée réglée dans la playlist</span></div>
+    <div class="kpi"><span class="lbl">Stockage</span><span class="val num">${fmtBytes(bytes)}</span><span class="sub">taille max par fichier selon votre offre Supabase</span></div>
+  </div>
+  <label class="drop" id="drop" for="fileIn">${ICONS.up}<strong>Glissez vos fichiers ici ou cliquez pour parcourir</strong><span>MP4, WebM, JPG, PNG, WebP, GIF · 1920×1080 recommandé · H.264 pour les tablettes Android</span></label>
+  <input type="file" id="fileIn" accept="video/mp4,video/webm,image/jpeg,image/png,image/webp,image/gif" multiple hidden>
+  ${S.uploads.length?`<div class="uploads">${S.uploads.map(u=>`<div class="up">${u.state==="busy"?'<span class="spin"></span>':u.state==="ok"?'<span class="pill on">OK</span>':'<span class="pill off">Erreur</span>'}<span class="name">${esc(u.name)}</span><span class="hint">${esc(u.msg||fmtBytes(u.size))}</span></div>`).join("")}</div>`:""}
+  <section class="panel"><div class="ph"><h2>Bibliothèque</h2>
+    <div class="chips">${[["all","Tous",S.media.length],["video","Vidéos",vids.length],["image","Images",imgs.length]].map(([k,l,n])=>`<button class="chip ${S.mediaFilter===k?"on":""}" data-mf="${k}">${l} · ${n}</button>`).join("")}</div></div>
+    ${cards?`<div class="mgrid">${cards}</div>`:`<div class="empty">${S.loaded?"Aucun média pour l'instant. Importez votre première vidéo ci-dessus.":"Chargement de la médiathèque…"}</div>`}
+  </section>`;
+}
+
+/* Playlists */
+function vPlaylists(){
+  const cards = S.playlists.map(p=>{
+    const used = S.displays.filter(d=>(d.assignments||[]).some(a=>a.playlistId===p.id));
+    const strip = (p.items||[]).slice(0,14).map(it=>{ const m=mediaById(it.mediaId); return m&&m.type==="image" ? `<div style="background-image:url('${thumbUrl(m)}')"></div>` : `<div style="background:color-mix(in srgb,var(--neon) ${m?35:8}%,var(--panel-2))" title="${esc(m?.name||"média supprimé")}"></div>`; }).join("");
+    return `<article class="card"><div class="top"><div><h3>${esc(p.name)}</h3><div class="sub">${esc(p.description||"Sans description")}</div></div>${p.loop?'<span class="pill img">Boucle</span>':'<span class="pill">1 passage</span>'}</div>
+      <div class="strip">${strip||'<div></div>'}</div>
+      <dl class="specs"><dt>Contenus</dt><dd>${(p.items||[]).length}</dd><dt>Durée du cycle</dt><dd>${fmtClock(plDuration(p))}</dd><dt>Écrans</dt><dd>${used.length?used.map(d=>esc(d.name)).join(", "):"aucun"}</dd></dl>
+      <div class="foot"><button class="btn sm" data-edit-pl="${esc(p.id)}">${ICONS.edit}Modifier</button><button class="btn sm ghost danger" data-del-pl="${esc(p.id)}">${ICONS.trash}Supprimer</button></div></article>`; }).join("");
+  return head("Playlists","Séquences de diffusion pour vos annonceurs", `<button class="btn pri" id="newPl">${ICONS.plus}Nouvelle playlist</button>`) +
+    (cards?`<div class="cards">${cards}</div>`:`<div class="panel"><div class="empty">${S.loaded?"Aucune playlist. Créez-en une pour assembler vos médias dans l'ordre de diffusion.":"Chargement des playlists…"}</div></div>`);
+}
+
+/* Displays */
+function devLabel(v){ const i=v.info||{}; const ua=i.ua||"";
+  const os=(/Android [\d.]+/.exec(ua)||[])[0] || (/iPad|iPhone/.test(ua)?"iPadOS":/Windows/.test(ua)?"Windows":/Mac OS/.test(ua)?"macOS":/Linux|CrOS/.test(ua)?"Linux":"Appareil");
+  return `${os}${i.screen?" · "+i.screen:""}${/Fully/i.test(ua)?" · Fully Kiosk":""}`; }
+function playerBox(d){
+  const dev=devOf(d);
+  if(!dev) return `<div class="pbox none"><span class="hint">Aucun player associé</span><button class="btn sm" data-pair-disp="${esc(d.id)}">Associer un player</button></div>`;
+  const c=dev.cache||{};
+  return `<div class="pbox"><div class="pbox-h"><span class="pid">${esc(fmtPid(dev.player_id))}</span>${devOnline(dev)?onPill:`<span class="pill off" title="Dernier signal">${esc(fmtAgo(dev.last_seen))}</span>`}</div>
+    <div class="hint">${esc(devLabel(dev))}${dev.info?.version?" · "+esc(dev.info.version):""}</div>
+    <div class="hint">Contenus en cache : <span class="mono">${c.ready??0}/${c.total??0}</span> · ${fmtBytes(c.bytes)}${c.off?" · cache local indisponible":""}${c.offline?" · fonctionne hors ligne":""}</div>
+    <div class="pbox-a"><button class="btn sm" data-cmd="identify" data-dev="${esc(dev.player_id)}">Identifier</button><button class="btn sm" data-cmd="resync" data-dev="${esc(dev.player_id)}">Resynchroniser</button><button class="btn sm" data-cmd="reload" data-dev="${esc(dev.player_id)}">Redémarrer</button><button class="btn sm ghost danger" data-unpair="${esc(dev.player_id)}">Dissocier</button></div></div>`;
+}
+function vDisplays(){
+  const today=dayKey(); const r=rep(today,today); const byD=Object.fromEntries((r?.displays||[]).map(x=>[x.display_id,x]));
+  const waiting=S.devices.filter(v=>!v.display_id && Date.now()-ts(v.last_seen)<7*86400e3);
+  const wait = waiting.length ? `<section class="panel"><div class="ph"><h2>Players en attente d'association</h2><p>Tablettes qui affichent leur Player ID</p></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Player ID</th><th>Appareil</th><th>Statut</th><th></th></tr></thead><tbody>${waiting.map(v=>`<tr><td><span class="pid">${esc(fmtPid(v.player_id))}</span></td><td>${esc(devLabel(v))}</td><td>${devOnline(v)?onPill:`<span class="pill off">${esc(fmtAgo(v.last_seen))}</span>`}</td><td style="text-align:right;white-space:nowrap"><button class="btn sm pri" data-pair-dev="${esc(v.player_id)}">Associer</button> <button class="icon-btn" data-forget="${esc(v.player_id)}" aria-label="Oublier ce player">${ICONS.trash}</button></td></tr>`).join("")}</tbody></table></div></section>` : "";
+  const cards = S.displays.map(d=>{
+    const t=byD[d.id]||T0;
+    const as=(d.assignments||[]).slice().sort((x,y)=>(y.priority||0)-(x.priority||0));
+    const now = nowOf(d);
+    return `<article class="card"><div class="top"><div><h3>${esc(d.name)}</h3><div class="sub">${esc(d.location||"Sans emplacement")}</div></div>${statusPill(d)}</div>
+      <dl class="specs"><dt>Format</dt><dd>${esc(d.resolution||"1920x1080")} · ${d.orientation==="portrait"?"portrait":"paysage"}</dd>
+        <dt>Audience</dt><dd>${(Number(d.audience)||1).toLocaleString("fr-FR")} contact${(Number(d.audience)||1)>1?"s":""} / diffusion</dd>
+        <dt>Aujourd'hui</dt><dd>${fmtInt(t.plays)} diffusions</dd>
+        ${now?`<dt>À l'écran</dt><dd>${esc(now)}</dd>`:""}</dl>
+      ${playerBox(d)}
+      <div><div class="hint" style="margin-bottom:4px">Programmation</div><div class="assign-list">${as.length?as.map(a=>{const p=plById(a.playlistId); const act=isActiveAssign(a); return `<div><span>${esc(p?.name||"Playlist supprimée")} ${act?'':'<span class="pill">inactive</span>'}</span><span class="when">P${a.priority||0} · ${a.start?fmtDay(a.start):"…"} → ${a.end?fmtDay(a.end):"…"}</span></div>`;}).join(""):'<span class="hint">Aucune playlist programmée</span>'}</div></div>
+      <div class="foot"><button class="btn sm" data-sched="${esc(d.id)}">${ICONS.cal}Programmer</button><button class="btn sm" data-edit-d="${esc(d.id)}">${ICONS.edit}Modifier</button><button class="btn sm ghost danger" data-del-d="${esc(d.id)}" aria-label="Supprimer ${esc(d.name)}">${ICONS.trash}</button></div></article>`; }).join("");
+  const playerUrl = new URL("player.html", location.href).href;
+  return head("Écrans","Parc de diffusion, players et programmation", `<button class="btn" id="newD">${ICONS.plus}Ajouter un écran</button><button class="btn pri" id="pairBtn">${ICONS.screen}Associer un player</button>`) +
+  `<div class="banner"><b>Installer une tablette :</b> dans Fully Kiosk (ou le navigateur), mettez en page d'accueil <span class="code">${esc(playerUrl)}</span>. Aucun compte n'est nécessaire : la tablette affiche son Player ID, saisissez-le avec « Associer un player ».</div>` +
+  wait + (cards?`<div class="cards">${cards}</div>`:`<div class="panel"><div class="empty">${S.loaded?"Aucun écran enregistré. Créez-en un, puis associez une tablette.":"Chargement des écrans…"}</div></div>`);
+}
+
+/* Reports */
+function vReports(){
+  const to=dayKey(), from=dayKey(addDays(-(S.range-1)));
+  const r=rep(from,to,S.repDisplay); const t=r?.totals||T0;
+  const rate = +t.plays ? (t.complete/t.plays*100) : 0;
+  const mrows = (r?.media||[]).map(v=>{ const m=mediaById(v.media_id);
+    return `<tr><td>${esc(m?.name||"Média supprimé")}</td><td>${m?`<span class="pill ${m.type==="video"?"vid":"img"}">${m.type==="video"?"Vidéo":"Image"}</span>`:""}</td><td class="n">${fmtInt(v.plays)}</td><td class="n">${fmtInt(v.complete)}</td><td class="n">${+v.plays?(v.complete/v.plays*100).toFixed(1):"0.0"} %</td><td class="n">${fmtInt(v.impressions)}</td><td class="n">${fmtSec(v.seconds)}</td></tr>`; }).join("");
+  const drows = (r?.displays||[]).map(v=>{ const d=dispById(v.display_id);
+    return `<tr><td>${esc(d?.name||"Écran supprimé")}</td><td>${esc(d?.location||"—")}</td><td class="n">${fmtInt(v.plays)}</td><td class="n">${fmtInt(v.complete)}</td><td class="n">${fmtInt(v.impressions)}</td><td class="n">${fmtSec(v.seconds)}</td></tr>`; }).join("");
+  const hb=Object.fromEntries((r?.hours||[]).map(h=>[h.hour,+h.plays]));
+  const hours = Array.from({length:24},(_,h)=>({label:pad(h)+"h", a:hb[h]||0}));
+  const loading = !r ? '<tr><td colspan="7" class="empty">Chargement…</td></tr>' : null;
+  return head("Reporting","Proof of play : diffusions, complétion et impressions",
+    `<select class="inp" id="repD" style="width:auto" aria-label="Écran">${[["all","Tous les écrans"],...S.displays.map(d=>[d.id,d.name])].map(([k,l])=>`<option value="${esc(k)}" ${S.repDisplay===k?"selected":""}>${esc(l)}</option>`).join("")}</select>
+     <select class="inp" id="repR" style="width:auto" aria-label="Période">${[[1,"Aujourd'hui"],[7,"7 derniers jours"],[30,"30 derniers jours"],[90,"90 derniers jours"]].map(([k,l])=>`<option value="${k}" ${S.range===k?"selected":""}>${l}</option>`).join("")}</select>
+     <button class="btn" id="csv">${ICONS.dl}Exporter CSV</button>`) + `
+  <div class="kpis">
+    <div class="kpi hl"><span class="lbl">Diffusions</span><span class="val num">${fmtInt(t.plays)}</span><span class="sub">spots lancés à l'écran</span></div>
+    <div class="kpi"><span class="lbl">Complètes</span><span class="val num">${fmtInt(t.complete)}</span><span class="sub">taux ${rate.toFixed(1)} %</span></div>
+    <div class="kpi"><span class="lbl">Impressions</span><span class="val num">${fmtInt(t.impressions)}</span><span class="sub">diffusions × audience</span></div>
+    <div class="kpi"><span class="lbl">Temps d'antenne</span><span class="val num">${fmtSec(t.seconds)}</span><span class="sub">moy. ${+t.plays?fmtSec(t.seconds/t.plays):"—"} / diffusion</span></div>
+  </div>
+  <div class="grid2">
+    <section class="panel"><div class="ph"><h2>Diffusions par jour</h2>${legend}</div>${barChart(daySeries(r,Math.max(S.range,2)),{aria:"Diffusions par jour",maxLabels:10})}</section>
+    <section class="panel"><div class="ph"><h2>Par heure</h2><p>cumul de la période</p></div>${barChart(hours,{aria:"Diffusions par heure",maxLabels:8})}</section>
+  </div>
+  <section class="panel"><div class="ph"><h2>Top médias</h2><p>preuve de diffusion par création</p></div><div class="tbl-wrap"><table><thead><tr><th>Média</th><th>Type</th><th class="n">Diffusions</th><th class="n">Complètes</th><th class="n">Taux</th><th class="n">Impressions</th><th class="n">Durée</th></tr></thead><tbody>${loading||mrows||'<tr><td colspan="7" class="empty">Aucune diffusion sur la période. Les données apparaissent dès qu\'un player tourne.</td></tr>'}</tbody></table></div></section>
+  <section class="panel"><div class="ph"><h2>Par écran</h2></div><div class="tbl-wrap"><table><thead><tr><th>Écran</th><th>Emplacement</th><th class="n">Diffusions</th><th class="n">Complètes</th><th class="n">Impressions</th><th class="n">Durée</th></tr></thead><tbody>${loading||drows||'<tr><td colspan="6" class="empty">Aucune donnée sur la période.</td></tr>'}</tbody></table></div></section>`;
+}
+
+/* ---------- bindings ---------- */
+function bindView(v){
+  const m=$("#main");
+  if (v==="media"){
+    m.querySelectorAll("[data-mf]").forEach(b=>b.onclick=()=>{S.mediaFilter=b.dataset.mf; render();});
+    const drop=$("#drop"), fi=$("#fileIn");
+    ["dragenter","dragover"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault(); drop.classList.add("over");}));
+    ["dragleave","drop"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault(); drop.classList.remove("over");}));
+    drop.addEventListener("drop",ev=>handleFiles(ev.dataTransfer.files));
+    fi.onchange=()=>{ handleFiles(fi.files); fi.value=""; };
+    m.querySelectorAll("[data-del-media]").forEach(b=>b.onclick=()=>{ const md=mediaById(b.dataset.delMedia); const n=S.playlists.filter(p=>(p.items||[]).some(i=>i.mediaId===md.id)).length;
+      confirmBox(`Supprimer « ${md.name} » ?`, (n?`Il sera retiré de ${n} playlist${n>1?"s":""}. `:"")+"Le fichier est effacé définitivement ; l'historique de diffusion reste dans le reporting.", ()=>deleteMedia(md)); });
+  }
+  if (v==="playlists"){
+    $("#newPl").onclick=()=>openPlaylistEditor(null);
+    m.querySelectorAll("[data-edit-pl]").forEach(b=>b.onclick=()=>openPlaylistEditor(plById(b.dataset.editPl)));
+    m.querySelectorAll("[data-del-pl]").forEach(b=>b.onclick=()=>{ const p=plById(b.dataset.delPl); confirmBox(`Supprimer la playlist « ${p.name} » ?`,"Elle sera retirée de la programmation des écrans.",()=>deletePlaylist(p)); });
+  }
+  if (v==="displays"){
+    $("#newD").onclick=()=>openDisplayEditor(null);
+    $("#pairBtn").onclick=()=>openPair({});
+    m.querySelectorAll("[data-pair-disp]").forEach(b=>b.onclick=()=>openPair({displayId:b.dataset.pairDisp}));
+    m.querySelectorAll("[data-pair-dev]").forEach(b=>b.onclick=()=>openPair({playerId:b.dataset.pairDev}));
+    m.querySelectorAll("[data-cmd]").forEach(b=>b.onclick=()=>sendCmd(b.dataset.dev,b.dataset.cmd));
+    m.querySelectorAll("[data-unpair]").forEach(b=>b.onclick=()=>confirmBox(`Dissocier le player ${fmtPid(b.dataset.unpair)} ?`,"La tablette arrête la diffusion et réaffiche son Player ID.",()=>unpair(b.dataset.unpair),"Dissocier"));
+    m.querySelectorAll("[data-forget]").forEach(b=>b.onclick=()=>confirmBox(`Oublier le player ${fmtPid(b.dataset.forget)} ?`,"S'il est encore allumé, il réapparaîtra dans la liste d'attente à sa prochaine synchronisation.",async()=>{ try{ await q(S.sb.from("devices").delete().eq("player_id",b.dataset.forget)); toast("Player oublié"); loadAll(); }catch(e){fail(e,"La suppression");} },"Oublier"));
+    m.querySelectorAll("[data-edit-d]").forEach(b=>b.onclick=()=>openDisplayEditor(dispById(b.dataset.editD)));
+    m.querySelectorAll("[data-sched]").forEach(b=>b.onclick=()=>openSchedule(dispById(b.dataset.sched)));
+    m.querySelectorAll("[data-del-d]").forEach(b=>b.onclick=()=>{ const d=dispById(b.dataset.delD); confirmBox(`Supprimer l'écran « ${d.name} » ?`,"Son historique de diffusion reste dans le reporting. Le player associé repasse en attente.",async()=>{ try{ await q(S.sb.from("displays").delete().eq("id",d.id)); toast("Écran supprimé"); loadAll(); }catch(e){fail(e,"La suppression");} }); });
+  }
+  if (v==="reports"){
+    $("#repR").onchange=e=>{S.range=+e.target.value; render();};
+    $("#repD").onchange=e=>{S.repDisplay=e.target.value; render();};
+    $("#csv").onclick=exportCsv;
+  }
+}
+
+/* ---------- media ---------- */
+const OK_TYPES=["video/mp4","video/webm","image/jpeg","image/png","image/webp","image/gif"];
+function probe(file){
+  return new Promise(res=>{
+    const url=URL.createObjectURL(file); const done=v=>{ URL.revokeObjectURL(url); res(v); };
+    if (file.type.startsWith("image/")){ const i=new Image(); i.onload=()=>done({width:i.naturalWidth,height:i.naturalHeight}); i.onerror=()=>done({}); i.src=url; }
+    else { const v=document.createElement("video"); v.preload="metadata"; v.muted=true; v.onloadedmetadata=()=>done({width:v.videoWidth,height:v.videoHeight,duration:Math.round(v.duration*10)/10}); v.onerror=()=>done({}); v.src=url; }
+  });
+}
+const safeName = n => n.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9._-]+/g,"-").replace(/-+/g,"-").slice(-80);
+async function handleFiles(list){
+  for (const file of Array.from(list||[])){
+    const u={name:file.name,size:file.size,state:"busy"}; S.uploads.unshift(u); render();
+    if (!OK_TYPES.includes(file.type)){ u.state="err"; u.msg="Format non pris en charge"; render(); continue; }
+    try{
+      const info=await probe(file);
+      const d=new Date(); const path=`${d.getFullYear()}/${pad(d.getMonth()+1)}/${crypto.randomUUID()}-${safeName(file.name)}`;
+      await q(S.sb.storage.from("media").upload(path,file,{contentType:file.type,cacheControl:"31536000",upsert:false}));
+      await q(S.sb.from("media").insert({ name:file.name, type:file.type.startsWith("video")?"video":"image", path, mime:file.type, size:file.size, width:info.width||null, height:info.height||null, duration:info.duration||null }));
+      u.state="ok"; u.msg="Importé";
+    }catch(e){ console.error(e); u.state="err"; const m=String(e?.message||""); u.msg = /exceeded|too large|Payload/i.test(m)?"Fichier trop lourd pour votre offre":/security|policy/i.test(m)?"Droits insuffisants":"Échec : "+m.slice(0,60); }
+    render();
+  }
+  await loadAll();
+  setTimeout(()=>{ S.uploads=S.uploads.filter(u=>u.state!=="ok"); render(); }, 4000);
+}
+async function deleteMedia(m){
+  try{
+    for (const p of S.playlists){ if ((p.items||[]).some(i=>i.mediaId===m.id)) await q(S.sb.from("playlists").update({items:p.items.filter(i=>i.mediaId!==m.id), updated_at:new Date().toISOString()}).eq("id",p.id)); }
+    await q(S.sb.from("media").delete().eq("id",m.id));
+    await S.sb.storage.from("media").remove([m.path]);
+    toast("Média supprimé"); loadAll();
+  }catch(e){ fail(e,"La suppression"); }
+}
+async function deletePlaylist(p){
+  try{
+    for (const d of S.displays){ if ((d.assignments||[]).some(a=>a.playlistId===p.id)) await q(S.sb.from("displays").update({assignments:d.assignments.filter(a=>a.playlistId!==p.id)}).eq("id",d.id)); }
+    await q(S.sb.from("playlists").delete().eq("id",p.id)); toast("Playlist supprimée"); loadAll();
+  }catch(e){ fail(e,"La suppression"); }
+}
+
+/* ---------- modals ---------- */
+let ED=null;
+function openModal(html, wide){ $("#modalRoot").innerHTML=`<div class="scrim" id="scrim"><div class="modal ${wide?"wide":""}" role="dialog" aria-modal="true">${html}</div></div>`;
+  $("#scrim").addEventListener("mousedown",e=>{ if(e.target.id==="scrim") closeModal(); });
+  $("#modalRoot").querySelectorAll("[data-close]").forEach(b=>b.onclick=closeModal);
+  const f=$("#modalRoot input, #modalRoot select"); if (f) f.focus(); }
+function closeModal(){ $("#modalRoot").innerHTML=""; ED=null; }
+document.addEventListener("keydown",e=>{ if(e.key==="Escape" && $("#scrim")) closeModal(); });
+function confirmBox(title, text, onYes, yesLabel="Supprimer"){
+  openModal(`<header><div><h2>${esc(title)}</h2><p>${esc(text)}</p></div></header><footer><button class="btn" data-close>Annuler</button><button class="btn pri" id="yes" style="background:var(--bad);border-color:var(--bad);color:#fff">${esc(yesLabel)}</button></footer>`);
+  $("#yes").onclick=()=>{ closeModal(); onYes(); };
+}
+function openDisplayEditor(d){
+  const x=d||{name:"",location:"",orientation:"landscape",resolution:"1920x1080",audience:1};
+  openModal(`<header><div><h2>${d?"Modifier l'écran":"Ajouter un écran"}</h2><p>L'audience par diffusion sert au calcul des impressions.</p></div><button class="icon-btn" data-close aria-label="Fermer">${ICONS.x}</button></header>
+  <form class="body" id="dForm">
+    <div class="field"><label for="dName">Nom</label><input id="dName" required value="${esc(x.name)}" placeholder="kabby-0004"></div>
+    <div class="field"><label for="dLoc">Emplacement</label><input id="dLoc" value="${esc(x.location)}" placeholder="Paris · taxi H2"></div>
+    <div class="fgrid">
+      <div class="field"><label for="dOr">Orientation</label><select id="dOr"><option value="landscape" ${x.orientation!=="portrait"?"selected":""}>Paysage</option><option value="portrait" ${x.orientation==="portrait"?"selected":""}>Portrait</option></select></div>
+      <div class="field"><label for="dRes">Résolution</label><input id="dRes" value="${esc(x.resolution)}" placeholder="1920x1080"></div>
+    </div>
+    <div class="field"><label for="dAud">Audience par diffusion (contacts)</label><input id="dAud" type="number" min="0" step="0.1" value="${esc(x.audience??1)}"><p class="hint">Ex. 1,4 passager en moyenne par trajet taxi. Impressions = diffusions × audience.</p></div>
+  </form>
+  <footer><button class="btn" data-close>Annuler</button><button class="btn pri" id="dSave">Enregistrer</button></footer>`);
+  const save=async()=>{
+    const name=$("#dName").value.trim(); if(!name){ $("#dName").focus(); toast("Donnez un nom à l'écran"); return; }
+    const data={name, location:$("#dLoc").value.trim(), orientation:$("#dOr").value, resolution:$("#dRes").value.trim()||"1920x1080", audience:Math.max(0,parseFloat($("#dAud").value)||1)};
+    try{ if(d) await q(S.sb.from("displays").update(data).eq("id",d.id)); else await q(S.sb.from("displays").insert(data)); closeModal(); toast(d?"Écran mis à jour":"Écran ajouté"); loadAll(); }catch(e){fail(e);}
+  };
+  $("#dSave").onclick=save; $("#dForm").onsubmit=e=>{e.preventDefault(); save();};
+}
+function openSchedule(d){
+  let rows=(d.assignments||[]).map(a=>({...a}));
+  const draw=()=>{
+    $("#aRows").innerHTML = rows.length ? rows.map((a,i)=>`<div class="arow">
+      <div class="field"><label for="ap${i}">Playlist</label><select id="ap${i}" data-i="${i}" data-k="playlistId">${S.playlists.map(p=>`<option value="${esc(p.id)}" ${p.id===a.playlistId?"selected":""}>${esc(p.name)}</option>`).join("")}</select></div>
+      <div class="field"><label for="apr${i}">Priorité</label><input id="apr${i}" type="number" min="0" max="99" data-i="${i}" data-k="priority" value="${esc(a.priority??1)}"></div>
+      <div class="field"><label for="as${i}">Début</label><input id="as${i}" type="date" data-i="${i}" data-k="start" value="${esc(a.start||"")}"></div>
+      <div class="field"><label for="ae${i}">Fin</label><input id="ae${i}" type="date" data-i="${i}" data-k="end" value="${esc(a.end||"")}"></div>
+      <button class="icon-btn" data-rm="${i}" aria-label="Retirer">${ICONS.trash}</button></div>`).join("") : `<p class="hint">Aucune playlist programmée sur cet écran.</p>`;
+    $("#aRows").querySelectorAll("[data-k]").forEach(el=>el.onchange=()=>{ const r=rows[+el.dataset.i]; r[el.dataset.k]= el.dataset.k==="priority" ? (+el.value||0) : el.value; });
+    $("#aRows").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{ rows.splice(+b.dataset.rm,1); draw(); });
+  };
+  openModal(`<header><div><h2>Programmation · ${esc(d.name)}</h2><p>La priorité la plus haute joue d'abord. Une playlist en boucle tourne seule ; sinon le player enchaîne les playlists actives par priorité.</p></div><button class="icon-btn" data-close aria-label="Fermer">${ICONS.x}</button></header>
+    <div class="body"><div id="aRows" style="display:flex;flex-direction:column;gap:12px"></div>
+    ${S.playlists.length?`<button class="btn sm" id="aAdd" style="align-self:flex-start">${ICONS.plus}Ajouter une playlist</button>`:`<p class="hint">Créez d'abord une playlist.</p>`}</div>
+    <footer><button class="btn" data-close>Annuler</button><button class="btn pri" id="aSave">Enregistrer</button></footer>`, true);
+  draw();
+  if ($("#aAdd")) $("#aAdd").onclick=()=>{ rows.push({playlistId:S.playlists[0].id, priority:1, start:dayKey(), end:""}); draw(); };
+  $("#aSave").onclick=async()=>{ const bad=rows.find(r=>r.start&&r.end&&r.end<r.start); if(bad){ toast("Une date de fin précède sa date de début"); return; }
+    try{ await q(S.sb.from("displays").update({assignments:rows.map(r=>({playlistId:r.playlistId, priority:+r.priority||0, start:r.start||"", end:r.end||""}))}).eq("id",d.id)); closeModal(); toast("Programmation enregistrée : les players la reçoivent sous 20 s"); loadAll(); }catch(e){fail(e);} };
+}
+function openPlaylistEditor(p){
+  ED = p ? {id:p.id, name:p.name, description:p.description||"", loop:p.loop!==false, items:(p.items||[]).map(i=>({...i})), q:""} : {id:null, name:"", description:"", loop:true, items:[], q:""};
+  openModal(`<header><div><h2>${p?"Modifier la playlist":"Nouvelle playlist"}</h2><p>Ajoutez des médias, glissez-les pour changer l'ordre, réglez la durée des images.</p></div><button class="icon-btn" data-close aria-label="Fermer">${ICONS.x}</button></header>
+  <div class="body">
+    <div class="fgrid"><div class="field"><label for="pName">Nom</label><input id="pName" value="${esc(ED.name)}" placeholder="Orange Travel · novembre"></div>
+    <div class="field"><label for="pDesc">Description</label><input id="pDesc" value="${esc(ED.description)}" placeholder="Annonceur, campagne, consignes"></div></div>
+    <label class="check"><input type="checkbox" id="pLoop" ${ED.loop?"checked":""}> Boucle : rejouer cette playlist sans passer aux suivantes</label>
+    <div class="editor">
+      <div class="lib"><h3><span>Médiathèque</span><span>${S.media.length}</span></h3><div style="padding:8px 8px 0"><input class="inp" id="pQ" placeholder="Rechercher" aria-label="Rechercher un média"></div><div class="lib-list" id="libList"></div></div>
+      <div class="seq"><h3><span>Séquence</span><span id="seqTot"></span></h3><div class="seq-list" id="seqList"></div></div>
+    </div>
+  </div>
+  <footer><span class="grow" id="pInfo"></span><button class="btn" data-close>Annuler</button><button class="btn pri" id="pSave">Enregistrer</button></footer>`, true);
+  $("#pName").oninput=e=>ED.name=e.target.value; $("#pDesc").oninput=e=>ED.description=e.target.value; $("#pLoop").onchange=e=>ED.loop=e.target.checked;
+  $("#pQ").oninput=e=>{ED.q=e.target.value.toLowerCase(); drawLib();};
+  $("#pSave").onclick=savePlaylist;
+  drawLib(); drawSeq();
+}
+function miniThumb(m){ if(!m) return `<div class="mini"></div>`; return `<div class="mini">${m.type==="video"?`<video src="${thumbUrl(m)}#t=0.5" muted preload="metadata"></video>`:`<img src="${thumbUrl(m)}" alt="" loading="lazy">`}</div>`; }
+function drawLib(){
+  const list=S.media.filter(m=>!ED.q||m.name.toLowerCase().includes(ED.q));
+  $("#libList").innerHTML = list.length ? list.map(m=>`<div class="li">${miniThumb(m)}<div class="nm"><b title="${esc(m.name)}">${esc(m.name)}</b><span>${m.type==="video"?"vidéo · "+fmtClock(m.duration):"image"}</span></div><button class="icon-btn" data-add="${esc(m.id)}" aria-label="Ajouter ${esc(m.name)}">${ICONS.plus}</button></div>`).join("") : `<div class="empty">${S.media.length?"Aucun résultat":"Importez d'abord des médias."}</div>`;
+  $("#libList").querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{ const m=mediaById(b.dataset.add); ED.items.push({mediaId:m.id, duration:m.type==="video"?(Number(m.duration)||0):10}); drawSeq(); const sl=$("#seqList"); sl.scrollTop=sl.scrollHeight; });
+}
+function updTotals(){ const t=ED.items.reduce((a,it)=>a+itemDuration(it),0); $("#seqTot").textContent=fmtClock(t); $("#pInfo").textContent=`${ED.items.length} contenu${ED.items.length>1?"s":""} · cycle de ${fmtClock(t)}`; }
+function drawSeq(){
+  const sl=$("#seqList");
+  sl.innerHTML = ED.items.length ? ED.items.map((it,i)=>{ const m=mediaById(it.mediaId);
+    return `<div class="li" draggable="true" data-i="${i}"><span class="grip" aria-hidden="true">${ICONS.grip}</span><span class="idx">${i+1}</span>${miniThumb(m)}
+      <div class="nm"><b>${esc(m?.name||"Média supprimé")}</b><span>${m?.type==="video"?"vidéo · durée native":"image"}</span></div>
+      ${m?.type==="image"?`<input class="dur-in" type="number" min="1" max="3600" value="${esc(it.duration||10)}" data-dur="${i}" aria-label="Durée en secondes">`:`<span class="mono hint">${fmtClock(m?.duration)}</span>`}
+      <button class="icon-btn" data-mv="${i}:-1" aria-label="Monter">${ICONS.upA}</button><button class="icon-btn" data-mv="${i}:1" aria-label="Descendre">${ICONS.dnA}</button><button class="icon-btn" data-rm="${i}" aria-label="Retirer">${ICONS.x}</button></div>`; }).join("")
+    : `<div class="empty">Ajoutez des médias depuis la colonne de gauche.</div>`;
+  sl.querySelectorAll("[data-dur]").forEach(el=>el.oninput=()=>{ ED.items[+el.dataset.dur].duration=Math.max(1,+el.value||1); updTotals(); });
+  sl.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{ ED.items.splice(+b.dataset.rm,1); drawSeq(); });
+  sl.querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{ const [i,dir]=b.dataset.mv.split(":").map(Number); const j=i+dir; if(j<0||j>=ED.items.length) return; [ED.items[i],ED.items[j]]=[ED.items[j],ED.items[i]]; drawSeq(); });
+  let from=null;
+  sl.querySelectorAll(".li[draggable]").forEach(el=>{
+    el.addEventListener("dragstart",e=>{ from=+el.dataset.i; el.classList.add("drag"); e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain",String(from)); });
+    el.addEventListener("dragend",()=>el.classList.remove("drag"));
+    el.addEventListener("dragover",e=>{ e.preventDefault(); el.classList.add("dropto"); });
+    el.addEventListener("dragleave",()=>el.classList.remove("dropto"));
+    el.addEventListener("drop",e=>{ e.preventDefault(); el.classList.remove("dropto"); const to=+el.dataset.i; if(from==null||from===to) return; const [it]=ED.items.splice(from,1); ED.items.splice(to,0,it); from=null; drawSeq(); });
+  });
+  updTotals();
+}
+async function savePlaylist(){
+  const name=ED.name.trim(); if(!name){ $("#pName").focus(); toast("Donnez un nom à la playlist"); return; }
+  const data={name, description:ED.description.trim(), loop:ED.loop, items:ED.items.map(i=>({mediaId:i.mediaId, duration:+i.duration||10})), updated_at:new Date().toISOString()};
+  try{ if(ED.id) await q(S.sb.from("playlists").update(data).eq("id",ED.id)); else await q(S.sb.from("playlists").insert(data)); closeModal(); toast("Playlist enregistrée"); loadAll(); }catch(e){fail(e);}
+}
+
+/* ---------- players ---------- */
+async function sendCmd(pid,type){
+  const label={identify:"Identifier",resync:"Resynchroniser",reload:"Redémarrer"}[type];
+  try{ await q(S.sb.from("devices").update({command:{type,at:Date.now()}}).eq("player_id",pid)); toast(`« ${label} » envoyé à ${fmtPid(pid)} : exécuté à la prochaine synchro (≤ 20 s)`); }catch(e){fail(e,"L'envoi");}
+}
+async function unpair(pid){
+  try{ await q(S.sb.from("devices").update({display_id:null}).eq("player_id",pid)); toast("Player dissocié"); loadAll(); }catch(e){fail(e);}
+}
+function openPair({playerId,displayId}){
+  if(!S.displays.length){ toast("Ajoutez d'abord un écran."); return; }
+  openModal(`<header><div><h2>Associer un player</h2><p>Saisissez le Player ID affiché sur la tablette, puis choisissez l'écran qu'elle représente.</p></div><button class="icon-btn" data-close aria-label="Fermer">${ICONS.x}</button></header>
+  <form class="body" id="pairForm">
+    <div class="field"><label for="pairPid">Player ID</label><input id="pairPid" class="pid-in" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="9" placeholder="XXXX-XXXX" value="${esc(playerId?fmtPid(playerId):"")}"></div>
+    <div class="field"><label for="pairDisp">Écran</label><select id="pairDisp">${S.displays.map(d=>`<option value="${esc(d.id)}" ${d.id===displayId?"selected":""}>${esc(d.name)}${d.location?" · "+esc(d.location):""}${devOf(d)?" (a déjà un player)":""}</option>`).join("")}</select></div>
+    <p class="hint" id="pairMsg">Si l'écran a déjà un player, l'ancien est dissocié et repasse en attente.</p>
+  </form>
+  <footer><button class="btn" data-close>Annuler</button><button class="btn pri" id="pairGo">Associer</button></footer>`);
+  const inp=$("#pairPid");
+  inp.oninput=()=>{ const n=normPid(inp.value).slice(0,8); inp.value=n.length>4?n.slice(0,4)+"-"+n.slice(4):n; };
+  const go=async()=>{
+    const pid=normPid(inp.value), did=$("#pairDisp").value, msg=$("#pairMsg");
+    if(pid.length!==8){ msg.textContent="Le Player ID compte 8 caractères, par exemple 7KQ3-M9XA."; inp.focus(); return; }
+    $("#pairGo").disabled=true;
+    try{
+      const found=await q(S.sb.from("devices").select("player_id,display_id").eq("player_id",pid));
+      if(!found.length){ msg.textContent=`Aucun player ${fmtPid(pid)} connu. Vérifiez le code et que la tablette est connectée à Internet.`; $("#pairGo").disabled=false; return; }
+      await q(S.sb.from("devices").update({display_id:null}).eq("display_id",did).neq("player_id",pid));
+      await q(S.sb.from("devices").update({display_id:did, paired_at:new Date().toISOString()}).eq("player_id",pid));
+      closeModal(); toast(`${fmtPid(pid)} associé à ${dispById(did)?.name||"l'écran"} : la diffusion démarre sous 20 s`); loadAll();
+    }catch(e){ $("#pairGo").disabled=false; fail(e,"L'association"); }
+  };
+  $("#pairGo").onclick=go; $("#pairForm").onsubmit=e=>{e.preventDefault(); go();};
+}
+
+/* ---------- CSV ---------- */
+async function exportCsv(){
+  const to=dayKey(), from=dayKey(addDays(-(S.range-1)));
+  try{
+    const rows=await q(S.sb.rpc("report_rows",{p_from:from,p_to:to,p_display:S.repDisplay==="all"?null:S.repDisplay}));
+    const lines=[["date","ecran","emplacement","media","type","diffusions","completes","secondes","impressions"], ...rows.map(r=>[r.day,r.display,r.location,r.media,r.type,r.plays,r.complete,r.seconds,r.impressions])];
+    const csv="﻿"+lines.map(r=>r.map(c=>{ const t=String(c??""); return /[;"\n]/.test(t)?`"${t.replace(/"/g,'""')}"`:t; }).join(";")).join("\n");
+    const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download=`kabby-proof-of-play_${from}_${to}.csv`; document.body.appendChild(a); a.click(); a.remove();
+  }catch(e){ fail(e,"L'export"); }
+}
+
+/* ---------- auth & boot ---------- */
+function showLogin(msg=""){
+  $("#app").hidden=true; $("#login").hidden=false;
+  $("#loginMsg").textContent=msg;
+}
+async function afterLogin(session){
+  S.user=session.user;
+  const staff = await S.sb.rpc("is_staff");
+  if (staff.error || staff.data!==true){ await S.sb.auth.signOut(); S.user=null; showLogin(staff.error ? "Impossible de vérifier vos droits : le schéma SQL est-il installé ?" : `${session.user.email} n'est pas dans l'équipe autorisée (table staff).`); return; }
+  $("#login").hidden=true; $("#app").hidden=false; $("#who").textContent=session.user.email;
+  renderNav(); render(); loadAll();
+  clearInterval(boot.t); boot.t=setInterval(()=>{ if(!document.hidden){ loadAll(); S.rep={}; } },20000);
+}
+async function boot(){
+  if(!window.supabase || !CFG.supabaseUrl || /VOTRE-PROJET/.test(CFG.supabaseUrl)){ showLogin("Renseignez l'URL et la clé anon de votre projet Supabase dans config.js."); $("#loginForm").hidden=true; return; }
+  S.sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, {auth:{persistSession:true, autoRefreshToken:true}});
+  $("#loginForm").onsubmit=async e=>{ e.preventDefault(); const btn=$("#loginGo"); btn.disabled=true; $("#loginMsg").textContent="";
+    const { data, error } = await S.sb.auth.signInWithPassword({ email:$("#lEmail").value.trim(), password:$("#lPass").value });
+    btn.disabled=false; if(error){ $("#loginMsg").textContent=/confirm/i.test(error.message)?"Confirmez d'abord votre e-mail (lien reçu par mail), puis reconnectez-vous.":"E-mail ou mot de passe incorrect."; return; } afterLogin(data.session); };
+  $("#signupGo").onclick=async()=>{ const email=$("#lEmail").value.trim(), password=$("#lPass").value, msg=$("#loginMsg");
+    if(!email||password.length<8){ msg.textContent="Saisissez votre e-mail et un mot de passe d'au moins 8 caractères, puis cliquez à nouveau."; return; }
+    const { data, error } = await S.sb.auth.signUp({ email, password, options:{ emailRedirectTo: location.href.split('#')[0] } });
+    if(error){ msg.textContent = /registered|exists/i.test(error.message) ? "Ce compte existe déjà : cliquez « Se connecter »." : "Création impossible : "+error.message; return; }
+    if(data.session){ afterLogin(data.session); return; }
+    msg.style.color="var(--good)"; msg.textContent="Compte créé. Ouvrez le lien de confirmation reçu par e-mail, puis revenez ici et cliquez « Se connecter »."; };
+  $("#logout").onclick=async()=>{ await S.sb.auth.signOut(); location.reload(); };
+  const { data } = await S.sb.auth.getSession();
+  if (data.session) afterLogin(data.session); else showLogin();
+}
+boot();
+})();
+
+</script>
+</body>
+</html>
