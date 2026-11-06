@@ -520,7 +520,7 @@ function vDisplays(){
         ${now?`<dt>À l'écran</dt><dd>${esc(now)}</dd>`:""}</dl>
       ${playerBox(d)}
       <div><div class="hint" style="margin-bottom:4px">Programmation</div><div class="assign-list">${as.length?as.map(a=>{const p=plById(a.playlistId); const act=isActiveAssign(a); return `<div><span>${esc(p?.name||"Playlist supprimée")} ${act?'':'<span class="pill">inactive</span>'}</span><span class="when">P${a.priority||0} · ${a.start?fmtDay(a.start):"…"} → ${a.end?fmtDay(a.end):"…"}</span></div>`;}).join(""):'<span class="hint">Aucune playlist programmée</span>'}</div></div>
-      <div class="foot"><button class="btn sm" data-sched="${esc(d.id)}">${ICONS.cal}Programmer</button><button class="btn sm" data-edit-d="${esc(d.id)}">${ICONS.edit}Modifier</button><button class="btn sm ghost danger" data-del-d="${esc(d.id)}" aria-label="Supprimer ${esc(d.name)}">${ICONS.trash}</button></div></article>`; }).join("");
+      <div class="foot"><button class="btn sm" data-rot="${esc(d.id)}">${ICONS.list}Rotation</button><button class="btn sm" data-sched="${esc(d.id)}">${ICONS.cal}Programmer</button><button class="btn sm" data-edit-d="${esc(d.id)}">${ICONS.edit}Modifier</button><button class="btn sm ghost danger" data-del-d="${esc(d.id)}" aria-label="Supprimer ${esc(d.name)}">${ICONS.trash}</button></div></article>`; }).join("");
   const playerUrl = new URL("player.html", location.href).href;
   return head("Écrans","Parc de diffusion, players et programmation", `<button class="btn" id="newD">${ICONS.plus}Ajouter un écran</button><button class="btn pri" id="pairBtn">${ICONS.screen}Associer un player</button>`) +
   `<div class="banner"><b>Installer une tablette :</b> dans Fully Kiosk (ou le navigateur), mettez en page d'accueil <span class="code">${esc(playerUrl)}</span>. Aucun compte n'est nécessaire : la tablette affiche son Player ID, saisissez-le avec « Associer un player ».</div>` +
@@ -535,9 +535,11 @@ function vCampaigns(){
   const live=S.campaigns.filter(c=>campState(c)==="live");
   const totImp=(r||[]).reduce((a,x)=>a+(+x.impressions||0),0);
   const cards=S.campaigns.map(c=>{ const t=by[c.id]||T0; const ds=(c.display_ids||[]).map(dispById).filter(Boolean);
-    return `<article class="card"><div class="top"><div><h3>${esc(c.name)}</h3><div class="sub">${esc(c.advertiser||"Annonceur non renseigné")}</div></div>${campPill(c)}</div>
+    const reached = +c.goal_impressions && +t.impressions >= +c.goal_impressions;
+    return `<article class="card"><div class="top"><div><h3>${esc(c.name)}</h3><div class="sub">${esc(c.advertiser||"Annonceur non renseigné")}</div></div>${reached && campState(c)==="live" ? '<span class="pill img">Objectif atteint</span>' : campPill(c)}</div>
       <div class="strip">${campStrip(c)||'<div></div>'}</div>
       <dl class="specs"><dt>Période</dt><dd>${fmtDay(c.start_date)} → ${fmtDay(c.end_date)}/${String(c.end_date).slice(0,4)}</dd>
+        <dt>Part de voix</dt><dd>${["","standard ×1","renforcée ×2","premium ×3"][c.weight||1]||"×"+c.weight}</dd>
         <dt>Visuels</dt><dd>${(c.items||[]).length}</dd>
         <dt>Écrans</dt><dd>${ds.length?ds.map(d=>esc(d.name)).join(", "):"aucun"}</dd>
         <dt>Diffusions</dt><dd>${r?fmtInt(t.plays):"…"}</dd>
@@ -545,7 +547,7 @@ function vCampaigns(){
       ${goalBar(+t.impressions||0, c.goal_impressions)}
       <div class="foot"><button class="btn sm" data-camp-rep="${esc(c.id)}">${ICONS.report}Bilan</button><button class="btn sm" data-edit-camp="${esc(c.id)}">${ICONS.edit}Modifier</button>
         <button class="btn sm ghost" data-pause-camp="${esc(c.id)}">${c.status==="paused"?"Reprendre":"Mettre en pause"}</button><button class="btn sm ghost danger" data-del-camp="${esc(c.id)}" aria-label="Supprimer ${esc(c.name)}">${ICONS.trash}</button></div></article>`; }).join("");
-  return head("Campagnes","Annonceurs, visuels, dates et écrans : la diffusion se programme toute seule", `<button class="btn pri" id="newCamp">${ICONS.plus}Nouvelle campagne</button>`) + `
+  return head("Campagnes","Les campagnes passent à tour de rôle dans la rotation de chaque écran, entre vos contenus maison", `<button class="btn pri" id="newCamp">${ICONS.plus}Nouvelle campagne</button>`) + `
   <div class="kpis">
     <div class="kpi hl"><span class="lbl">Campagnes en cours</span><span class="val num">${live.length}</span><span class="sub">${S.campaigns.length} au total</span></div>
     <div class="kpi"><span class="lbl">Écrans mobilisés</span><span class="val num">${new Set(live.flatMap(c=>c.display_ids||[])).size}</span><span class="sub">par les campagnes en cours</span></div>
@@ -555,15 +557,16 @@ function vCampaigns(){
 
 function openCampaignEditor(c){
   const t=dayKey();
-  ED = c ? {camp:true, id:c.id, name:c.name, advertiser:c.advertiser||"", start:c.start_date, end:c.end_date, status:c.status, goal:c.goal_impressions||"", items:(c.items||[]).map(i=>({...i})), displays:new Set(c.display_ids||[]), q:""}
-         : {camp:true, id:null, name:"", advertiser:"", start:t, end:dayKey(addDays(29)), status:"active", goal:"", items:[], displays:new Set(), q:""};
-  openModal(`<header><div><h2>${c?"Modifier la campagne":"Nouvelle campagne"}</h2><p>Pendant ses dates, les visuels de la campagne s'ajoutent à la boucle des écrans cochés (sous 20 s), puis en sortent seuls.</p></div><button class="icon-btn" data-close aria-label="Fermer">${ICONS.x}</button></header>
+  ED = c ? {camp:true, id:c.id, name:c.name, advertiser:c.advertiser||"", start:c.start_date, end:c.end_date, status:c.status, goal:c.goal_impressions||"", weight:c.weight||1, items:(c.items||[]).map(i=>({...i})), displays:new Set(c.display_ids||[]), q:""}
+         : {camp:true, id:null, name:"", advertiser:"", start:t, end:dayKey(addDays(29)), status:"active", goal:"", weight:1, items:[], displays:new Set(), q:""};
+  openModal(`<header><div><h2>${c?"Modifier la campagne":"Nouvelle campagne"}</h2><p>Pendant ses dates, la campagne entre dans la rotation des écrans cochés : un spot, un contenu maison, le spot d'une autre campagne… Elle s'arrête seule à sa date de fin ou quand l'objectif est atteint.</p></div><button class="icon-btn" data-close aria-label="Fermer">${ICONS.x}</button></header>
   <div class="body">
     <div class="fgrid"><div class="field"><label for="cName">Nom de la campagne</label><input id="cName" value="${esc(ED.name)}" placeholder="Orange Travel · novembre"></div>
       <div class="field"><label for="cAdv">Annonceur</label><input id="cAdv" value="${esc(ED.advertiser)}" placeholder="Orange"></div></div>
     <div class="fgrid"><div class="field"><label for="cStart">Début</label><input id="cStart" type="date" value="${esc(ED.start)}"></div>
       <div class="field"><label for="cEnd">Fin (incluse)</label><input id="cEnd" type="date" value="${esc(ED.end)}"></div></div>
-    <div class="field"><label for="cGoal">Objectif d'impressions (facultatif)</label><input id="cGoal" type="number" min="0" step="1" value="${esc(ED.goal)}" placeholder="ex. 50000"></div>
+    <div class="fgrid"><div class="field"><label for="cWeight">Part de voix</label><select id="cWeight">${[[1,"Standard (×1)"],[2,"Renforcée (×2)"],[3,"Premium (×3)"]].map(([k,l])=>`<option value="${k}" ${+ED.weight===k?"selected":""}>${l}</option>`).join("")}</select><p class="hint">Une campagne ×2 passe deux fois plus souvent qu'une campagne standard.</p></div>
+      <div class="field"><label for="cGoal">Objectif d'impressions (facultatif)</label><input id="cGoal" type="number" min="0" step="1" value="${esc(ED.goal)}" placeholder="ex. 50000"><p class="hint">Le rythme s'ajuste chaque jour pour l'atteindre à la date de fin, puis la campagne s'arrête.</p></div></div>
     <div class="field"><label>Écrans de la campagne <span class="hint" id="dCount"></span></label>
       <div class="row" style="gap:8px;margin-bottom:6px"><button class="btn sm" type="button" id="dAll">Tout cocher</button><button class="btn sm ghost" type="button" id="dNone">Tout décocher</button></div>
       <div class="dpick" id="dPick"></div></div>
@@ -575,7 +578,7 @@ function openCampaignEditor(c){
   </div>
   <footer><span class="grow" id="pInfo"></span><button class="btn" data-close>Annuler</button><button class="btn pri" id="cSave">Enregistrer</button></footer>`, true);
   $("#cName").oninput=e=>ED.name=e.target.value; $("#cAdv").oninput=e=>ED.advertiser=e.target.value;
-  $("#cStart").onchange=e=>ED.start=e.target.value; $("#cEnd").onchange=e=>ED.end=e.target.value; $("#cGoal").oninput=e=>ED.goal=e.target.value;
+  $("#cStart").onchange=e=>ED.start=e.target.value; $("#cEnd").onchange=e=>ED.end=e.target.value; $("#cGoal").oninput=e=>ED.goal=e.target.value; $("#cWeight").onchange=e=>ED.weight=+e.target.value;
   $("#pQ").oninput=e=>{ED.q=e.target.value.toLowerCase(); drawLib();};
   $("#dAll").onclick=()=>{ S.displays.forEach(d=>ED.displays.add(d.id)); drawDPick(); };
   $("#dNone").onclick=()=>{ ED.displays.clear(); drawDPick(); };
@@ -595,7 +598,7 @@ async function saveCampaign(){
   if(ED.end<ED.start){ toast("La date de fin précède la date de début"); return; }
   if(!ED.items.length){ toast("Ajoutez au moins un visuel à la campagne"); return; }
   if(!ED.displays.size){ toast("Cochez au moins un écran"); return; }
-  const data={name, advertiser:ED.advertiser.trim(), start_date:ED.start, end_date:ED.end, status:ED.status,
+  const data={name, advertiser:ED.advertiser.trim(), start_date:ED.start, end_date:ED.end, status:ED.status, weight:+ED.weight||1,
     goal_impressions: +ED.goal>0 ? Math.round(+ED.goal) : null,
     items:ED.items.map(i=>({mediaId:i.mediaId, duration:+i.duration||10})), display_ids:[...ED.displays], updated_at:new Date().toISOString()};
   try{ if(ED.id) await q(S.sb.from("campaigns").update(data).eq("id",ED.id)); else await q(S.sb.from("campaigns").insert(data));
@@ -606,6 +609,21 @@ async function toggleCampaign(c){
 }
 async function deleteCampaign(c){
   try{ await q(S.sb.from("campaigns").delete().eq("id",c.id)); S.camp={}; toast("Campagne supprimée"); loadAll(); }catch(e){fail(e,"La suppression");}
+}
+
+/* Rotation du jour d'un écran (aperçu de ce que diffuse la tablette) */
+async function openRotation(d){
+  openModal(`<header><div><h2>Rotation du jour · ${esc(d.name)}</h2><p>L'ordre de passage que la tablette répète en boucle aujourd'hui. Il est recalculé chaque jour et à chaque changement de campagne.</p></div><button class="icon-btn" data-close aria-label="Fermer">${ICONS.x}</button></header>
+    <div class="body" id="rotBody"><div class="empty">Calcul de la rotation…</div></div><footer><button class="btn pri" data-close>Fermer</button></footer>`, true);
+  let r; try{ r=await q(S.sb.rpc("rotation_preview",{p_display:d.id})); }catch(e){ $("#rotBody").innerHTML=`<div class="empty">Aperçu indisponible : ${esc(String(e.message||e).slice(0,120))}</div>`; return; }
+  const box=$("#rotBody"); if(!box) return;
+  const items=r.items||[], camps=r.campaigns||[];
+  const total=items.reduce((a,it)=>a+itemDuration(it),0);
+  const rows=items.map((it,i)=>{ const m=mediaById(it.mediaId); const c=it.campaignId?campById(it.campaignId):null;
+    return `<div class="li"><span class="idx">${i+1}</span>${miniThumb(m)}<div class="nm"><b>${esc(m?.name||"Média supprimé")}</b><span>${c?`campagne · ${esc(c.name)}${c.advertiser?" ("+esc(c.advertiser)+")":""}`:"contenu maison"}</span></div>${c?'<span class="pill vid">Pub</span>':'<span class="pill">Maison</span>'}<span class="mono hint">${fmtClock(itemDuration(it))}</span></div>`; }).join("");
+  const st={on_air:"à l'antenne", goal_reached:"objectif atteint : en pause"};
+  box.innerHTML = `${camps.length?`<div class="tbl-wrap"><table><thead><tr><th>Campagne</th><th>État</th><th class="n">Spots par tour</th><th class="n">Rythme</th></tr></thead><tbody>${camps.map(c=>`<tr><td>${esc(c.name)}</td><td>${st[c.status]||c.status}</td><td class="n">${c.spots}</td><td class="n">${c.status==="on_air"?(+c.pace===1?"normal":"×"+(+c.pace).toFixed(2)):"—"}</td></tr>`).join("")}</tbody></table></div><p class="hint">Rythme supérieur à 1 : la campagne est en retard sur son objectif et passe plus souvent ; inférieur à 1 : elle est en avance.</p>`:`<p class="hint">Aucune campagne à l'antenne aujourd'hui sur cet écran : il diffuse sa programmation habituelle.</p>`}
+    <div class="seq" style="margin-top:8px"><h3><span>Ordre de passage</span><span>${items.length} éléments · un tour = ${fmtClock(total)}</span></h3><div class="seq-list" style="max-height:340px">${rows||'<div class="empty">Rien à diffuser : programmez une playlist ou une campagne.</div>'}</div></div>`;
 }
 
 /* Bilan d'une campagne (détail par écran et par jour) */
@@ -711,6 +729,7 @@ function bindView(v){
     m.querySelectorAll("[data-forget]").forEach(b=>b.onclick=()=>confirmBox(`Oublier le player ${fmtPid(b.dataset.forget)} ?`,"S'il est encore allumé, il réapparaîtra dans la liste d'attente à sa prochaine synchronisation.",async()=>{ try{ await q(S.sb.from("devices").delete().eq("player_id",b.dataset.forget)); toast("Player oublié"); loadAll(); }catch(e){fail(e,"La suppression");} },"Oublier"));
     m.querySelectorAll("[data-edit-d]").forEach(b=>b.onclick=()=>openDisplayEditor(dispById(b.dataset.editD)));
     m.querySelectorAll("[data-sched]").forEach(b=>b.onclick=()=>openSchedule(dispById(b.dataset.sched)));
+    m.querySelectorAll("[data-rot]").forEach(b=>b.onclick=()=>openRotation(dispById(b.dataset.rot)));
     m.querySelectorAll("[data-del-d]").forEach(b=>b.onclick=()=>{ const d=dispById(b.dataset.delD); confirmBox(`Supprimer l'écran « ${d.name} » ?`,"Son historique de diffusion reste dans le reporting. Le player associé repasse en attente.",async()=>{ try{ await q(S.sb.from("displays").delete().eq("id",d.id)); toast("Écran supprimé"); loadAll(); }catch(e){fail(e,"La suppression");} }); });
   }
   if (v==="campaigns"){
