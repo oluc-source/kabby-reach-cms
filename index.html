@@ -443,7 +443,7 @@ function vMedia(){
     <div class="kpi"><span class="lbl">Images</span><span class="val num">${imgs.length}</span><span class="sub">durée réglée dans la playlist</span></div>
     <div class="kpi"><span class="lbl">Stockage</span><span class="val num">${fmtBytes(bytes)}</span><span class="sub">taille max par fichier selon votre offre Supabase</span></div>
   </div>
-  <label class="drop" id="drop" for="fileIn">${ICONS.up}<strong>Glissez vos fichiers ici ou cliquez pour parcourir</strong><span>MP4, WebM, JPG, PNG, WebP, GIF · 1920×1080 recommandé · H.264 pour les tablettes Android</span></label>
+  <label class="drop" id="drop" for="fileIn">${ICONS.up}<strong>Glissez vos fichiers ici ou cliquez pour parcourir</strong><span>MP4, WebM, JPG, PNG, WebP, GIF · les vidéos sont adaptées automatiquement aux tablettes (H.264, 1920×1080 max)</span></label>
   <input type="file" id="fileIn" accept="video/mp4,video/webm,image/jpeg,image/png,image/webp,image/gif" multiple hidden>
   ${S.uploads.length?`<div class="uploads">${S.uploads.map(u=>`<div class="up">${u.state==="busy"?'<span class="spin"></span>':u.state==="ok"?'<span class="pill on">OK</span>':'<span class="pill off">Erreur</span>'}<span class="name">${esc(u.name)}</span><span class="hint">${esc(u.msg||fmtBytes(u.size))}</span></div>`).join("")}</div>`:""}
   <section class="panel"><div class="ph"><h2>Bibliothèque</h2>
@@ -489,6 +489,7 @@ function vDisplays(){
     const now = nowOf(d);
     return `<article class="card"><div class="top"><div><h3>${esc(d.name)}</h3><div class="sub">${esc(d.location||"Sans emplacement")}</div></div>${statusPill(d)}</div>
       <dl class="specs"><dt>Format</dt><dd>${esc(d.resolution||"1920x1080")} · ${d.orientation==="portrait"?"portrait":"paysage"}</dd>
+        <dt>Cadrage</dt><dd>${d.fit==="cover"?"remplir l'écran":"en entier"}</dd>
         <dt>Audience</dt><dd>${(Number(d.audience)||1).toLocaleString("fr-FR")} contact${(Number(d.audience)||1)>1?"s":""} / diffusion</dd>
         <dt>Aujourd'hui</dt><dd>${fmtInt(t.plays)} diffusions</dd>
         ${now?`<dt>À l'écran</dt><dd>${esc(now)}</dd>`:""}</dl>
@@ -577,17 +578,91 @@ function probe(file){
     else { const v=document.createElement("video"); v.preload="metadata"; v.muted=true; v.onloadedmetadata=()=>done({width:v.videoWidth,height:v.videoHeight,duration:Math.round(v.duration*10)/10}); v.onerror=()=>done({}); v.src=url; }
   });
 }
+
+/* ---------- normalisation des médias (compatibilité tablettes) ---------- */
+// Format cible universel : H.264 Main 4.0, AAC, au plus 1920×1080 (ou 1080×1920 en portrait).
+const BOX_LONG=1920, BOX_SHORT=1080;
+function targetSize(w,h){
+  const land=w>=h; const s=Math.min(1, land ? Math.min(BOX_LONG/w, BOX_SHORT/h) : Math.min(BOX_SHORT/w, BOX_LONG/h));
+  const even=n=>Math.max(2, Math.round(n/2)*2);
+  return { w: even(w*s), h: even(h*s), scaled: s<1 };
+}
+async function inspectVideo(file){
+  const out={ avc:false, profile:null, level:null, audio:false, mp4:/mp4/.test(file.type) };
+  if (!out.mp4 || file.size>300*1024*1024) return out;
+  const b=new Uint8Array(await file.arrayBuffer()); const s=new TextDecoder("latin1").decode(b);
+  const i=s.indexOf("avcC"); if (i>0){ out.avc=true; out.profile=b[i+5]; out.level=b[i+7]; }
+  out.audio = s.indexOf("mp4a")>0;
+  return out;
+}
+function videoNeedsConversion(meta, insp){
+  const big = meta.width && meta.height && targetSize(meta.width, meta.height).scaled;
+  const badCodec = !insp.mp4 || !insp.avc || ![66,77,100].includes(insp.profile) || (insp.level||0) > 41;
+  return { needed: !!(big || badCodec), reason: big ? `${meta.width}×${meta.height} trop grand` : badCodec ? (insp.avc ? `profil H.264 niveau ${(insp.level||0)/10} trop élevé` : "codec non compatible") : "" };
+}
+function pickRecorderType(withAudio){
+  const c=[withAudio?"video/mp4;codecs=avc1.4d0028,mp4a.40.2":null,"video/mp4;codecs=avc1.4d0028","video/mp4;codecs=avc1.42E028","video/mp4"].filter(Boolean);
+  return c.find(t=>window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || null;
+}
+async function transcodeVideo(file, meta, insp, onProgress){
+  const { w, h } = targetSize(meta.width||1920, meta.height||1080);
+  const url=URL.createObjectURL(file);
+  const v=document.createElement("video"); v.src=url; v.playsInline=true; v.preload="auto";
+  await new Promise((res,rej)=>{ v.onloadedmetadata=res; v.onerror=()=>rej(new Error("Vidéo illisible dans le navigateur")); });
+  const c=document.createElement("canvas"); c.width=w; c.height=h; const g=c.getContext("2d"); g.fillStyle="#000"; g.fillRect(0,0,w,h);
+  const stream=c.captureStream(Math.min(30, 25));
+  let ac=null, withAudio=false;
+  if (insp.audio){
+    try{ ac=new AudioContext(); await ac.resume(); const src=ac.createMediaElementSource(v); const dst=ac.createMediaStreamDestination(); src.connect(dst); dst.stream.getAudioTracks().forEach(t=>stream.addTrack(t)); withAudio=true; }catch(e){ withAudio=false; }
+  }
+  const type=pickRecorderType(withAudio); if(!type) throw new Error("Conversion impossible dans ce navigateur (utilisez Chrome)");
+  const bps=Math.max(2500000, Math.round(6000000*(w*h)/(1920*1080)));
+  const rec=new MediaRecorder(stream,{ mimeType:type, videoBitsPerSecond:bps, audioBitsPerSecond:128000 });
+  const chunks=[]; rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+  const draw=()=>{ g.drawImage(v,0,0,w,h); onProgress && onProgress(v.currentTime, v.duration); if(!v.ended) v.requestVideoFrameCallback(draw); };
+  v.muted=!withAudio;
+  rec.start(1000); v.requestVideoFrameCallback(draw);
+  try{ await v.play(); }catch(e){ v.muted=true; await v.play(); }
+  await new Promise(r=>v.onended=r); await new Promise(r=>setTimeout(r,300));
+  rec.stop(); await new Promise(r=>rec.onstop=r);
+  stream.getTracks().forEach(t=>t.stop()); if(ac) ac.close(); URL.revokeObjectURL(url);
+  const blob=new Blob(chunks,{type:"video/mp4"});
+  return { blob, width:w, height:h, duration: Math.round((v.duration||meta.duration||0)*10)/10, audio:withAudio };
+}
+async function resizeImage(file, meta){
+  const { w, h, scaled } = targetSize(meta.width, meta.height);
+  if (!scaled) return null;
+  const img=new Image(); const url=URL.createObjectURL(file); img.src=url; await img.decode();
+  const c=document.createElement("canvas"); c.width=w; c.height=h; c.getContext("2d").drawImage(img,0,0,w,h); URL.revokeObjectURL(url);
+  const type = file.type==="image/png" ? "image/png" : "image/jpeg";
+  const blob = await new Promise(r=>c.toBlob(r, type, 0.9));
+  return { blob, width:w, height:h, type };
+}
 const safeName = n => n.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9._-]+/g,"-").replace(/-+/g,"-").slice(-80);
 async function handleFiles(list){
   for (const file of Array.from(list||[])){
     const u={name:file.name,size:file.size,state:"busy"}; S.uploads.unshift(u); render();
     if (!OK_TYPES.includes(file.type)){ u.state="err"; u.msg="Format non pris en charge"; render(); continue; }
     try{
-      const info=await probe(file);
-      const d=new Date(); const path=`${d.getFullYear()}/${pad(d.getMonth()+1)}/${crypto.randomUUID()}-${safeName(file.name)}`;
-      await q(S.sb.storage.from("media").upload(path,file,{contentType:file.type,cacheControl:"31536000",upsert:false}));
-      await q(S.sb.from("media").insert({ name:file.name, type:file.type.startsWith("video")?"video":"image", path, mime:file.type, size:file.size, width:info.width||null, height:info.height||null, duration:info.duration||null }));
-      u.state="ok"; u.msg="Importé";
+      let info=await probe(file), body=file, type=file.type, name=file.name, note="";
+      if (file.type.startsWith("video")){
+        u.msg="Analyse du format…"; render();
+        const insp=await inspectVideo(file); const chk=videoNeedsConversion(info, insp);
+        if (chk.needed){
+          u.msg=`Adaptation pour tablette (${chk.reason})… gardez cet onglet affiché`; render();
+          const r=await transcodeVideo(file, info, insp, (t,dur)=>{ const m=`Adaptation pour tablette : ${Math.round(t)}/${Math.round(dur||0)} s · gardez cet onglet affiché`; if(u.msg!==m){ u.msg=m; render(); } });
+          body=r.blob; type="video/mp4"; info={width:r.width,height:r.height,duration:r.duration||info.duration};
+          name=file.name.replace(/\.[^.]+$/,"")+".mp4"; note=` · adapté en ${r.width}×${r.height}${insp.audio&&!r.audio?" (sans son)":""}`;
+        }
+      } else if (file.type!=="image/gif" && info.width && info.height){
+        const r=await resizeImage(file, info);
+        if (r){ body=r.blob; type=r.type; info={width:r.width,height:r.height}; note=` · redimensionné en ${r.width}×${r.height}`; }
+      }
+      u.msg="Envoi…"; render();
+      const d=new Date(); const path=`${d.getFullYear()}/${pad(d.getMonth()+1)}/${crypto.randomUUID()}-${safeName(name)}`;
+      await q(S.sb.storage.from("media").upload(path,body,{contentType:type,cacheControl:"31536000",upsert:false}));
+      await q(S.sb.from("media").insert({ name, type:type.startsWith("video")?"video":"image", path, mime:type, size:body.size, width:info.width||null, height:info.height||null, duration:info.duration||null }));
+      u.state="ok"; u.msg="Importé"+note;
     }catch(e){ console.error(e); u.state="err"; const m=String(e?.message||""); u.msg = /exceeded|too large|Payload/i.test(m)?"Fichier trop lourd pour votre offre":/security|policy/i.test(m)?"Droits insuffisants":"Échec : "+m.slice(0,60); }
     render();
   }
@@ -631,12 +706,13 @@ function openDisplayEditor(d){
       <div class="field"><label for="dOr">Orientation</label><select id="dOr"><option value="landscape" ${x.orientation!=="portrait"?"selected":""}>Paysage</option><option value="portrait" ${x.orientation==="portrait"?"selected":""}>Portrait</option></select></div>
       <div class="field"><label for="dRes">Résolution</label><input id="dRes" value="${esc(x.resolution)}" placeholder="1920x1080"></div>
     </div>
+    <div class="field"><label for="dFit">Cadrage des contenus</label><select id="dFit"><option value="contain" ${x.fit!=="cover"?"selected":""}>Afficher en entier (bandes noires si besoin)</option><option value="cover" ${x.fit==="cover"?"selected":""}>Remplir l'écran (bords rognés si besoin)</option></select><p class="hint">Exemple : une vidéo 16:9 sur une tablette 16:10 affiche de fines bandes noires en mode « en entier », ou perd un peu des côtés en mode « remplir ».</p></div>
     <div class="field"><label for="dAud">Audience par diffusion (contacts)</label><input id="dAud" type="number" min="0" step="0.1" value="${esc(x.audience??1)}"><p class="hint">Ex. 1,4 passager en moyenne par trajet taxi. Impressions = diffusions × audience.</p></div>
   </form>
   <footer><button class="btn" data-close>Annuler</button><button class="btn pri" id="dSave">Enregistrer</button></footer>`);
   const save=async()=>{
     const name=$("#dName").value.trim(); if(!name){ $("#dName").focus(); toast("Donnez un nom à l'écran"); return; }
-    const data={name, location:$("#dLoc").value.trim(), orientation:$("#dOr").value, resolution:$("#dRes").value.trim()||"1920x1080", audience:Math.max(0,parseFloat($("#dAud").value)||1)};
+    const data={name, location:$("#dLoc").value.trim(), orientation:$("#dOr").value, resolution:$("#dRes").value.trim()||"1920x1080", fit:$("#dFit").value, audience:Math.max(0,parseFloat($("#dAud").value)||1)};
     try{ if(d) await q(S.sb.from("displays").update(data).eq("id",d.id)); else await q(S.sb.from("displays").insert(data)); closeModal(); toast(d?"Écran mis à jour":"Écran ajouté"); loadAll(); }catch(e){fail(e);}
   };
   $("#dSave").onclick=save; $("#dForm").onsubmit=e=>{e.preventDefault(); save();};

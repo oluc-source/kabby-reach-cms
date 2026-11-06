@@ -19,7 +19,7 @@ html,body{margin:0;height:100%;background:#000;color:#fff;font-family:var(--f-bo
 .player{position:fixed;inset:0;cursor:none}
 .player.show-ui{cursor:default}
 .stage{position:absolute;inset:0;background:#000}
-.stage img,.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .4s}
+.stage img,.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:var(--fit,contain);opacity:0;transition:opacity .4s}
 .stage .in{opacity:1}
 @media (prefers-reduced-motion:reduce){.stage img,.stage video{transition:none}}
 .idle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px;background:radial-gradient(circle at 50% 40%,#1a1e34,#000 70%)}
@@ -250,6 +250,7 @@ function play(pl, it){
   const m = media(it.mediaId), stage = $("#stage");
   $("#pair").hidden = true; $("#idle").hidden = true;
   const started = Date.now(); P.current = { pl, it, m }; bar();
+  stage.style.setProperty("--fit", P.cfg?.display?.fit === "cover" ? "cover" : "contain");
   let done = false;
   const finish = complete => { if (done) return; done = true; const secs = (Date.now() - started) / 1000; record(m.id, complete, complete && m.type === "video" ? (Number(m.duration) || secs) : secs); P.current = null; next(); };
   const swap = el => { const old = [...stage.children]; stage.appendChild(el); requestAnimationFrame(() => el.classList.add("in")); setTimeout(() => old.forEach(o => { if (o.tagName === "VIDEO"){ o.pause(); o.removeAttribute("src"); o.load(); } o.remove(); }), 450); };
