@@ -236,14 +236,13 @@ function stopPlayback(){ clearTimeout(P.itemT); P.current = null; $("#stage").in
 function next(){
   clearTimeout(P.itemT);
   if (!P.cfg?.paired){ return; }
-  const pls = activePlaylists();
-  if (!pls.length){ P.current = null; $("#stage").innerHTML = ""; showIdle(`${P.cfg.display.name} · aucune playlist programmée aujourd'hui`); P.itemT = setTimeout(next, 15000); bar(); return; }
-  // Priorité la plus haute d'abord ; une playlist en boucle se répète, une playlist « 1 passage » passe la main à la suivante.
-  let pi = P.cursor.pl, ii = P.cursor.item;
-  if (pi >= pls.length){ pi = 0; ii = 0; }
-  if (ii >= valid(pls[pi]).length){ ii = 0; if (pls[pi].loop === false) pi = (pi + 1) % pls.length; }
-  const pl = pls[pi], it = valid(pl)[ii];
-  P.cursor = { pl:pi, item:ii + 1 };
+  // Même logique que l'application : on enchaîne les playlists « 1 passage » (campagnes) puis la première playlist en boucle, et on répète le tout.
+  const seq = [];
+  for (const p of activePlaylists()){ for (const it of valid(p)) seq.push([p, it]); if (p.loop !== false) break; }
+  if (!seq.length){ P.current = null; $("#stage").innerHTML = ""; showIdle(`${P.cfg.display.name} · aucune playlist programmée aujourd'hui`); P.itemT = setTimeout(next, 15000); bar(); return; }
+  let i = P.cursor.item; if (i >= seq.length) i = 0;
+  const [pl, it] = seq[i];
+  P.cursor = { pl:0, item:i + 1 };
   play(pl, it);
 }
 function play(pl, it){

@@ -165,6 +165,18 @@ tr:last-child td{border-bottom:0}
 .field input,.field select,.inp{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
 .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .check{display:flex;align-items:center;gap:8px;font-size:14px}
+.prog{height:8px;border-radius:99px;background:var(--panel-2);overflow:hidden}
+.prog i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.dpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;max-height:260px;overflow:auto;padding:2px}
+.dpick label{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;cursor:pointer;background:var(--panel)}
+.dpick label.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--panel))}
+.field .dpick label{flex-direction:row;font-weight:400;font-size:13px;color:var(--fg);text-transform:none;letter-spacing:0;margin:0}
+.field .dpick input[type=checkbox]{width:18px;height:18px;min-height:0;flex:none;margin:1px 0 0;padding:0;accent-color:var(--accent)}
+.dpick span{display:flex;flex-direction:column;min-width:0}
+.dpick b{font-size:14px;overflow-wrap:anywhere}
+.dpick .hint{font-size:12px}
+.pill.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+tr.click{cursor:pointer} tr.click:hover td{background:color-mix(in srgb,var(--accent) 6%,transparent)}
 .hint{font-size:12px;color:var(--muted);margin:0}
 
 .editor{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:16px;min-height:0}
@@ -290,6 +302,7 @@ const ICONS = {
   media:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>',
   list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h11M4 12h11M4 18h7"/><path d="m16 15 5 3-5 3z" fill="currentColor"/></svg>',
   screen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
+  camp:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10v4a1 1 0 0 0 1 1h3l6 4V5L7 9H4a1 1 0 0 0-1 1z"/><path d="M17 9a4 4 0 0 1 0 6M19.5 6.5a8 8 0 0 1 0 11"/></svg>',
   report:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
   up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>',
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
@@ -303,14 +316,17 @@ const ICONS = {
   dl:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>',
   out:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>'
 };
-const VIEWS = [["dashboard","Dashboard","dash"],["media","Médias","media"],["playlists","Playlists","list"],["displays","Écrans","screen"],["reports","Reporting","report"]];
+const VIEWS = [["dashboard","Dashboard","dash"],["media","Médias","media"],["playlists","Playlists","list"],["campaigns","Campagnes","camp"],["displays","Écrans","screen"],["reports","Reporting","report"]];
 
 /* ---------- state ---------- */
-const S = { media:[], playlists:[], displays:[], devices:[], loaded:false, sb:null, user:null,
+const S = { media:[], playlists:[], displays:[], devices:[], campaigns:[], camp:{}, loaded:false, sb:null, user:null,
   mediaFilter:"all", uploads:[], range:7, repDisplay:"all", rep:{}, status:"loading" };
 const mediaById = id => S.media.find(m => m.id === id);
 const plById = id => S.playlists.find(p => p.id === id);
 const dispById = id => S.displays.find(d => d.id === id);
+const campById = id => S.campaigns.find(c => c.id === id);
+const campState = c => { const t=dayKey(); if (c.status==="paused") return "paused"; if (c.start_date > t) return "soon"; if (c.end_date < t) return "done"; return "live"; };
+const campPill = c => ({live:'<span class="pill on"><span class="dot"></span>En cours</span>', soon:'<span class="pill img">À venir</span>', done:'<span class="pill">Terminée</span>', paused:'<span class="pill warn">En pause</span>'})[campState(c)];
 const pubUrl = path => `${CFG.supabaseUrl}/storage/v1/object/public/media/${path.split("/").map(encodeURIComponent).join("/")}`;
 const thumbUrl = m => m ? pubUrl(m.path) : "";
 const itemDuration = it => { const m = mediaById(it.mediaId); if (!m) return 0; return m.type === "video" ? (Number(m.duration) || Number(it.duration) || 0) : (Number(it.duration) || 10); };
@@ -329,13 +345,14 @@ async function q(promise){ const { data, error } = await promise; if (error) thr
 async function loadAll(){
   const sb=S.sb;
   try{
-    const [media, playlists, displays, devices] = await Promise.all([
+    const [media, playlists, displays, devices, campaigns] = await Promise.all([
       q(sb.from("media").select("*").order("created_at",{ascending:false})),
       q(sb.from("playlists").select("*").order("updated_at",{ascending:false})),
       q(sb.from("displays").select("*").order("name")),
-      q(sb.from("devices").select("player_id,display_id,info,cache,now_playing,command,last_seen,paired_at,created_at").order("last_seen",{ascending:false, nullsFirst:false}))
+      q(sb.from("devices").select("player_id,display_id,info,cache,now_playing,command,last_seen,paired_at,created_at").order("last_seen",{ascending:false, nullsFirst:false})),
+      q(sb.from("campaigns").select("*").order("start_date",{ascending:false})).catch(e=>{ console.warn("campagnes indisponibles", e); return []; })
     ]);
-    Object.assign(S,{media,playlists,displays,devices,loaded:true,status:"ready"}); setSync(true,"Synchronisé");
+    Object.assign(S,{media,playlists,displays,devices,campaigns,loaded:true,status:"ready"}); setSync(true,"Synchronisé");
   }catch(e){ console.error(e); S.status="error"; setSync(false,"Connexion perdue"); }
   render(); if(ED && $("#libList")) drawLib();
 }
@@ -351,6 +368,14 @@ async function loadReport(from,to,disp="all",force=false){
   }catch(e){ console.error(e); S.rep[k]={data:S.rep[k]?.data||null, at:Date.now()}; }
   render(); return S.rep[k].data;
 }
+async function loadCamp(key, fn, args){
+  if (S.camp[key]?.pending || (S.camp[key] && Date.now()-S.camp[key].at<30000)) return;
+  S.camp[key]={...(S.camp[key]||{}), pending:true};
+  try{ const data=await q(S.sb.rpc(fn,args)); S.camp[key]={data,at:Date.now()}; }
+  catch(e){ console.error(e); S.camp[key]={data:S.camp[key]?.data||null, at:Date.now()}; }
+  render(); if (ED?.campDetail===key) drawCampDetail();
+}
+function campRep(from=null,to=null,disp="all"){ const k=`list|${from}|${to}|${disp}`; const r=S.camp[k]; if(!r || (!r.pending && Date.now()-r.at>30000)) loadCamp(k,"report_campaigns",{p_from:from,p_to:to,p_display:disp==="all"?null:disp}); return r?.data||null; }
 function rep(from,to,disp="all"){ const r=S.rep[repKey(from,to,disp)]; if(!r || (!r.pending && Date.now()-r.at>30000)) loadReport(from,to,disp); return r?.data || null; }
 
 /* ---------- routing ---------- */
@@ -367,7 +392,7 @@ function render(){
   if (!S.user) return;
   const v=currentView(); const m=$("#main");
   const banner = S.status==="error" ? `<div class="banner">Impossible de joindre Supabase. Vérifiez la connexion et le fichier config.js ; nouvel essai automatique toutes les 20 s.</div>` : "";
-  const html = ({dashboard:vDashboard, media:vMedia, playlists:vPlaylists, displays:vDisplays, reports:vReports}[v] || vDashboard)();
+  const html = ({dashboard:vDashboard, media:vMedia, playlists:vPlaylists, displays:vDisplays, campaigns:vCampaigns, reports:vReports}[v] || vDashboard)();
   const y=window.scrollY; m.innerHTML = banner + html; window.scrollTo(0,y);
   bindView(v);
 }
@@ -502,6 +527,128 @@ function vDisplays(){
   wait + (cards?`<div class="cards">${cards}</div>`:`<div class="panel"><div class="empty">${S.loaded?"Aucun écran enregistré. Créez-en un, puis associez une tablette.":"Chargement des écrans…"}</div></div>`);
 }
 
+/* Campagnes */
+function campStrip(c){ return (c.items||[]).slice(0,14).map(it=>{ const m=mediaById(it.mediaId); return m&&m.type==="image" ? `<div style="background-image:url('${thumbUrl(m)}')"></div>` : `<div style="background:color-mix(in srgb,var(--neon) ${m?35:8}%,var(--panel-2))" title="${esc(m?.name||"média supprimé")}"></div>`; }).join(""); }
+function goalBar(imp, goal){ if(!+goal) return ""; const pc=Math.min(100, imp/goal*100); return `<div><div class="hint" style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Objectif ${fmtInt(goal)} impressions</span><span class="mono">${pc.toFixed(0)} %</span></div><div class="prog"><i style="width:${pc}%"></i></div></div>`; }
+function vCampaigns(){
+  const r=campRep(); const by=Object.fromEntries((r||[]).map(x=>[x.campaign_id,x]));
+  const live=S.campaigns.filter(c=>campState(c)==="live");
+  const totImp=(r||[]).reduce((a,x)=>a+(+x.impressions||0),0);
+  const cards=S.campaigns.map(c=>{ const t=by[c.id]||T0; const ds=(c.display_ids||[]).map(dispById).filter(Boolean);
+    return `<article class="card"><div class="top"><div><h3>${esc(c.name)}</h3><div class="sub">${esc(c.advertiser||"Annonceur non renseigné")}</div></div>${campPill(c)}</div>
+      <div class="strip">${campStrip(c)||'<div></div>'}</div>
+      <dl class="specs"><dt>Période</dt><dd>${fmtDay(c.start_date)} → ${fmtDay(c.end_date)}/${String(c.end_date).slice(0,4)}</dd>
+        <dt>Visuels</dt><dd>${(c.items||[]).length}</dd>
+        <dt>Écrans</dt><dd>${ds.length?ds.map(d=>esc(d.name)).join(", "):"aucun"}</dd>
+        <dt>Diffusions</dt><dd>${r?fmtInt(t.plays):"…"}</dd>
+        <dt>Impressions</dt><dd><b>${r?fmtInt(t.impressions):"…"}</b></dd></dl>
+      ${goalBar(+t.impressions||0, c.goal_impressions)}
+      <div class="foot"><button class="btn sm" data-camp-rep="${esc(c.id)}">${ICONS.report}Bilan</button><button class="btn sm" data-edit-camp="${esc(c.id)}">${ICONS.edit}Modifier</button>
+        <button class="btn sm ghost" data-pause-camp="${esc(c.id)}">${c.status==="paused"?"Reprendre":"Mettre en pause"}</button><button class="btn sm ghost danger" data-del-camp="${esc(c.id)}" aria-label="Supprimer ${esc(c.name)}">${ICONS.trash}</button></div></article>`; }).join("");
+  return head("Campagnes","Annonceurs, visuels, dates et écrans : la diffusion se programme toute seule", `<button class="btn pri" id="newCamp">${ICONS.plus}Nouvelle campagne</button>`) + `
+  <div class="kpis">
+    <div class="kpi hl"><span class="lbl">Campagnes en cours</span><span class="val num">${live.length}</span><span class="sub">${S.campaigns.length} au total</span></div>
+    <div class="kpi"><span class="lbl">Écrans mobilisés</span><span class="val num">${new Set(live.flatMap(c=>c.display_ids||[])).size}</span><span class="sub">par les campagnes en cours</span></div>
+    <div class="kpi"><span class="lbl">Impressions livrées</span><span class="val num">${r?fmtInt(totImp):"…"}</span><span class="sub">toutes campagnes, sur leur période</span></div>
+  </div>` + (cards?`<div class="cards">${cards}</div>`:`<div class="panel"><div class="empty">${S.loaded?"Aucune campagne. Créez-en une : choisissez les visuels, les dates et les écrans, la diffusion démarre automatiquement.":"Chargement des campagnes…"}</div></div>`);
+}
+
+function openCampaignEditor(c){
+  const t=dayKey();
+  ED = c ? {camp:true, id:c.id, name:c.name, advertiser:c.advertiser||"", start:c.start_date, end:c.end_date, status:c.status, goal:c.goal_impressions||"", items:(c.items||[]).map(i=>({...i})), displays:new Set(c.display_ids||[]), q:""}
+         : {camp:true, id:null, name:"", advertiser:"", start:t, end:dayKey(addDays(29)), status:"active", goal:"", items:[], displays:new Set(), q:""};
+  openModal(`<header><div><h2>${c?"Modifier la campagne":"Nouvelle campagne"}</h2><p>Pendant ses dates, les visuels de la campagne s'ajoutent à la boucle des écrans cochés (sous 20 s), puis en sortent seuls.</p></div><button class="icon-btn" data-close aria-label="Fermer">${ICONS.x}</button></header>
+  <div class="body">
+    <div class="fgrid"><div class="field"><label for="cName">Nom de la campagne</label><input id="cName" value="${esc(ED.name)}" placeholder="Orange Travel · novembre"></div>
+      <div class="field"><label for="cAdv">Annonceur</label><input id="cAdv" value="${esc(ED.advertiser)}" placeholder="Orange"></div></div>
+    <div class="fgrid"><div class="field"><label for="cStart">Début</label><input id="cStart" type="date" value="${esc(ED.start)}"></div>
+      <div class="field"><label for="cEnd">Fin (incluse)</label><input id="cEnd" type="date" value="${esc(ED.end)}"></div></div>
+    <div class="field"><label for="cGoal">Objectif d'impressions (facultatif)</label><input id="cGoal" type="number" min="0" step="1" value="${esc(ED.goal)}" placeholder="ex. 50000"></div>
+    <div class="field"><label>Écrans de la campagne <span class="hint" id="dCount"></span></label>
+      <div class="row" style="gap:8px;margin-bottom:6px"><button class="btn sm" type="button" id="dAll">Tout cocher</button><button class="btn sm ghost" type="button" id="dNone">Tout décocher</button></div>
+      <div class="dpick" id="dPick"></div></div>
+    <div class="field"><label>Visuels diffusés</label>
+    <div class="editor">
+      <div class="lib"><h3><span>Médiathèque</span><span>${S.media.length}</span></h3><div style="padding:8px 8px 0"><input class="inp" id="pQ" placeholder="Rechercher" aria-label="Rechercher un média"></div><div class="lib-list" id="libList"></div></div>
+      <div class="seq"><h3><span>Visuels de la campagne</span><span id="seqTot"></span></h3><div class="seq-list" id="seqList"></div></div>
+    </div></div>
+  </div>
+  <footer><span class="grow" id="pInfo"></span><button class="btn" data-close>Annuler</button><button class="btn pri" id="cSave">Enregistrer</button></footer>`, true);
+  $("#cName").oninput=e=>ED.name=e.target.value; $("#cAdv").oninput=e=>ED.advertiser=e.target.value;
+  $("#cStart").onchange=e=>ED.start=e.target.value; $("#cEnd").onchange=e=>ED.end=e.target.value; $("#cGoal").oninput=e=>ED.goal=e.target.value;
+  $("#pQ").oninput=e=>{ED.q=e.target.value.toLowerCase(); drawLib();};
+  $("#dAll").onclick=()=>{ S.displays.forEach(d=>ED.displays.add(d.id)); drawDPick(); };
+  $("#dNone").onclick=()=>{ ED.displays.clear(); drawDPick(); };
+  $("#cSave").onclick=saveCampaign;
+  drawDPick(); drawLib(); drawSeq();
+}
+function drawDPick(){
+  $("#dPick").innerHTML = S.displays.length ? S.displays.map(d=>{ const on=ED.displays.has(d.id);
+    return `<label class="${on?"on":""}"><input type="checkbox" data-dp="${esc(d.id)}" ${on?"checked":""}><span><b>${esc(d.name)}</b><span class="hint">${esc(d.location||"Sans emplacement")} · ${isOnline(d)?"en ligne":"hors ligne"}</span></span></label>`; }).join("")
+    : `<p class="hint">Aucun écran. Créez d'abord vos écrans dans l'onglet Écrans.</p>`;
+  $("#dPick").querySelectorAll("[data-dp]").forEach(cb=>cb.onchange=()=>{ if(cb.checked) ED.displays.add(cb.dataset.dp); else ED.displays.delete(cb.dataset.dp); cb.closest("label").classList.toggle("on",cb.checked); $("#dCount").textContent=`· ${ED.displays.size} sélectionné${ED.displays.size>1?"s":""}`; });
+  $("#dCount").textContent=`· ${ED.displays.size} sélectionné${ED.displays.size>1?"s":""}`;
+}
+async function saveCampaign(){
+  const name=ED.name.trim(); if(!name){ $("#cName").focus(); toast("Donnez un nom à la campagne"); return; }
+  if(!ED.start||!ED.end){ toast("Indiquez les dates de début et de fin"); return; }
+  if(ED.end<ED.start){ toast("La date de fin précède la date de début"); return; }
+  if(!ED.items.length){ toast("Ajoutez au moins un visuel à la campagne"); return; }
+  if(!ED.displays.size){ toast("Cochez au moins un écran"); return; }
+  const data={name, advertiser:ED.advertiser.trim(), start_date:ED.start, end_date:ED.end, status:ED.status,
+    goal_impressions: +ED.goal>0 ? Math.round(+ED.goal) : null,
+    items:ED.items.map(i=>({mediaId:i.mediaId, duration:+i.duration||10})), display_ids:[...ED.displays], updated_at:new Date().toISOString()};
+  try{ if(ED.id) await q(S.sb.from("campaigns").update(data).eq("id",ED.id)); else await q(S.sb.from("campaigns").insert(data));
+    closeModal(); S.camp={}; toast("Campagne enregistrée : les écrans la reçoivent sous 20 s"); loadAll(); }catch(e){fail(e);}
+}
+async function toggleCampaign(c){
+  try{ await q(S.sb.from("campaigns").update({status:c.status==="paused"?"active":"paused", updated_at:new Date().toISOString()}).eq("id",c.id)); toast(c.status==="paused"?"Campagne relancée":"Campagne en pause : elle quitte les écrans sous 20 s"); loadAll(); }catch(e){fail(e);}
+}
+async function deleteCampaign(c){
+  try{ await q(S.sb.from("campaigns").delete().eq("id",c.id)); S.camp={}; toast("Campagne supprimée"); loadAll(); }catch(e){fail(e,"La suppression");}
+}
+
+/* Bilan d'une campagne (détail par écran et par jour) */
+function openCampaignReport(id, from=null, to=null){
+  const c=campById(id); if(!c) return;
+  const key=`one|${id}|${from}|${to}`;
+  ED={campDetail:key, id, from, to};
+  openModal(`<header><div><h2>Bilan · ${esc(c.name)}</h2><p>${esc(c.advertiser||"")}${c.advertiser?" · ":""}${from?`${fmtDay(from)} → ${fmtDay(to)} (période du reporting)`:`campagne du ${fmtDay(c.start_date)} au ${fmtDay(c.end_date)}/${String(c.end_date).slice(0,4)}`}</p></div><button class="icon-btn" data-close aria-label="Fermer">${ICONS.x}</button></header>
+    <div class="body" id="campDet"></div>
+    <footer><button class="btn" id="campCsv">${ICONS.dl}Exporter CSV</button><button class="btn pri" data-close>Fermer</button></footer>`, true);
+  $("#campCsv").onclick=()=>exportCampCsv(c, S.camp[key]?.data);
+  if(!S.camp[key] || Date.now()-S.camp[key].at>30000) loadCamp(key,"report_campaign",{p_id:id,p_from:from,p_to:to});
+  drawCampDetail();
+}
+function campDays(c, from, to){ const a=from||c.start_date, b=to||(c.end_date<dayKey()?c.end_date:dayKey()); const out=[]; let d=new Date(a+"T12:00:00"); const end=new Date((b<a?a:b)+"T12:00:00"); while(d<=end && out.length<400){ out.push(dayKey(d)); d=addDays(1,d); } return out; }
+function drawCampDetail(){
+  const box=$("#campDet"); if(!box||!ED?.campDetail) return;
+  const c=campById(ED.id); const r=S.camp[ED.campDetail]?.data;
+  if(!r){ box.innerHTML='<div class="empty">Chargement du bilan…</div>'; return; }
+  const t=r.totals||T0; const rate=+t.plays?(t.complete/t.plays*100):0;
+  const by=Object.fromEntries((r.days||[]).map(d=>[d.day,d]));
+  const series=campDays(c,ED.from,ED.to).map(k=>({label:fmtDay(k), a:+(by[k]?.impressions||0)}));
+  const drows=(r.displays||[]).map(v=>{ const d=dispById(v.display_id); return `<tr><td>${esc(d?.name||"Écran supprimé")}</td><td>${esc(d?.location||"—")}</td><td class="n">${fmtInt(v.plays)}</td><td class="n">${fmtInt(v.complete)}</td><td class="n">${fmtInt(v.impressions)}</td><td class="n">${fmtSec(v.seconds)}</td></tr>`; }).join("");
+  const silent=(c.display_ids||[]).filter(id=>!(r.displays||[]).some(v=>v.display_id===id)).map(dispById).filter(Boolean);
+  box.innerHTML=`<div class="kpis">
+      <div class="kpi hl"><span class="lbl">Impressions</span><span class="val num">${fmtInt(t.impressions)}</span><span class="sub">diffusions × audience</span></div>
+      <div class="kpi"><span class="lbl">Diffusions</span><span class="val num">${fmtInt(t.plays)}</span><span class="sub">${fmtInt(t.complete)} complètes · ${rate.toFixed(1)} %</span></div>
+      <div class="kpi"><span class="lbl">Temps d'antenne</span><span class="val num">${fmtSec(t.seconds)}</span><span class="sub">${(c.display_ids||[]).length} écran${(c.display_ids||[]).length>1?"s":""}</span></div>
+    </div>
+    ${goalBar(+t.impressions||0, c.goal_impressions)}
+    <section class="panel"><div class="ph"><h2>Impressions par jour</h2></div>${barChart(series,{aria:"Impressions par jour",maxLabels:10})}</section>
+    <section class="panel"><div class="ph"><h2>Par écran</h2></div><div class="tbl-wrap"><table><thead><tr><th>Écran</th><th>Emplacement</th><th class="n">Diffusions</th><th class="n">Complètes</th><th class="n">Impressions</th><th class="n">Durée</th></tr></thead>
+      <tbody>${drows||'<tr><td colspan="6" class="empty">Aucune diffusion pour l\'instant.</td></tr>'}${silent.map(d=>`<tr><td>${esc(d.name)}</td><td>${esc(d.location||"—")}</td><td class="n" colspan="4"><span class="hint">aucune diffusion</span></td></tr>`).join("")}</tbody></table></div></section>`;
+}
+function exportCampCsv(c, r){
+  if(!r){ toast("Bilan en cours de chargement"); return; }
+  const lines=[["campagne","annonceur","ecran","emplacement","diffusions","completes","secondes","impressions"],
+    ...(r.displays||[]).map(v=>{ const d=dispById(v.display_id); return [c.name,c.advertiser||"",d?.name||v.display_id,d?.location||"",v.plays,v.complete,Math.round(v.seconds),Math.round(v.impressions)]; }),
+    [], ["date","","","","diffusions","completes","","impressions"], ...(r.days||[]).map(d=>[d.day,"","","",d.plays,d.complete,"",Math.round(d.impressions)])];
+  const csv="﻿"+lines.map(row=>row.map(x=>{ const s=String(x??""); return /[;"\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; }).join(";")).join("\n");
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download=`kabby-campagne_${(c.name||"").replace(/[^\w-]+/g,"-")}.csv`; document.body.appendChild(a); a.click(); a.remove();
+}
+
 /* Reports */
 function vReports(){
   const to=dayKey(), from=dayKey(addDays(-(S.range-1)));
@@ -514,6 +661,9 @@ function vReports(){
   const hb=Object.fromEntries((r?.hours||[]).map(h=>[h.hour,+h.plays]));
   const hours = Array.from({length:24},(_,h)=>({label:pad(h)+"h", a:hb[h]||0}));
   const loading = !r ? '<tr><td colspan="7" class="empty">Chargement…</td></tr>' : null;
+  const cr=campRep(from,to,S.repDisplay); const crBy=Object.fromEntries((cr||[]).map(x=>[x.campaign_id,x]));
+  const crows=S.campaigns.filter(c=>c.start_date<=to && c.end_date>=from).map(c=>{ const v=crBy[c.id]||T0; const pc=+c.goal_impressions?` · ${Math.min(999,v.impressions/c.goal_impressions*100).toFixed(0)} % de l'objectif`:"";
+    return `<tr class="click" data-camp-rep="${esc(c.id)}" tabindex="0"><td><b>${esc(c.name)}</b><div class="hint">${esc(c.advertiser||"—")}</div></td><td>${campPill(c)}</td><td class="mono">${fmtDay(c.start_date)} → ${fmtDay(c.end_date)}</td><td class="n">${(c.display_ids||[]).length}</td><td class="n">${fmtInt(v.plays)}</td><td class="n">${fmtInt(v.complete)}</td><td class="n"><b>${fmtInt(v.impressions)}</b><div class="hint">${pc.replace(" · ","")}</div></td></tr>`; }).join("");
   return head("Reporting","Proof of play : diffusions, complétion et impressions",
     `<select class="inp" id="repD" style="width:auto" aria-label="Écran">${[["all","Tous les écrans"],...S.displays.map(d=>[d.id,d.name])].map(([k,l])=>`<option value="${esc(k)}" ${S.repDisplay===k?"selected":""}>${esc(l)}</option>`).join("")}</select>
      <select class="inp" id="repR" style="width:auto" aria-label="Période">${[[1,"Aujourd'hui"],[7,"7 derniers jours"],[30,"30 derniers jours"],[90,"90 derniers jours"]].map(([k,l])=>`<option value="${k}" ${S.range===k?"selected":""}>${l}</option>`).join("")}</select>
@@ -528,6 +678,7 @@ function vReports(){
     <section class="panel"><div class="ph"><h2>Diffusions par jour</h2>${legend}</div>${barChart(daySeries(r,Math.max(S.range,2)),{aria:"Diffusions par jour",maxLabels:10})}</section>
     <section class="panel"><div class="ph"><h2>Par heure</h2><p>cumul de la période</p></div>${barChart(hours,{aria:"Diffusions par heure",maxLabels:8})}</section>
   </div>
+  <section class="panel"><div class="ph"><h2>Par campagne</h2><p>impressions sur la période · cliquez une ligne pour le détail par écran et par jour</p></div><div class="tbl-wrap"><table><thead><tr><th>Campagne</th><th>Statut</th><th>Dates</th><th class="n">Écrans</th><th class="n">Diffusions</th><th class="n">Complètes</th><th class="n">Impressions</th></tr></thead><tbody>${!cr?'<tr><td colspan="7" class="empty">Chargement…</td></tr>':crows||'<tr><td colspan="7" class="empty">Aucune campagne sur cette période. Créez-en une dans l\'onglet Campagnes.</td></tr>'}</tbody></table></div></section>
   <section class="panel"><div class="ph"><h2>Top médias</h2><p>preuve de diffusion par création</p></div><div class="tbl-wrap"><table><thead><tr><th>Média</th><th>Type</th><th class="n">Diffusions</th><th class="n">Complètes</th><th class="n">Taux</th><th class="n">Impressions</th><th class="n">Durée</th></tr></thead><tbody>${loading||mrows||'<tr><td colspan="7" class="empty">Aucune diffusion sur la période. Les données apparaissent dès qu\'un player tourne.</td></tr>'}</tbody></table></div></section>
   <section class="panel"><div class="ph"><h2>Par écran</h2></div><div class="tbl-wrap"><table><thead><tr><th>Écran</th><th>Emplacement</th><th class="n">Diffusions</th><th class="n">Complètes</th><th class="n">Impressions</th><th class="n">Durée</th></tr></thead><tbody>${loading||drows||'<tr><td colspan="6" class="empty">Aucune donnée sur la période.</td></tr>'}</tbody></table></div></section>`;
 }
@@ -562,7 +713,15 @@ function bindView(v){
     m.querySelectorAll("[data-sched]").forEach(b=>b.onclick=()=>openSchedule(dispById(b.dataset.sched)));
     m.querySelectorAll("[data-del-d]").forEach(b=>b.onclick=()=>{ const d=dispById(b.dataset.delD); confirmBox(`Supprimer l'écran « ${d.name} » ?`,"Son historique de diffusion reste dans le reporting. Le player associé repasse en attente.",async()=>{ try{ await q(S.sb.from("displays").delete().eq("id",d.id)); toast("Écran supprimé"); loadAll(); }catch(e){fail(e,"La suppression");} }); });
   }
+  if (v==="campaigns"){
+    $("#newCamp").onclick=()=>openCampaignEditor(null);
+    m.querySelectorAll("[data-edit-camp]").forEach(b=>b.onclick=()=>openCampaignEditor(campById(b.dataset.editCamp)));
+    m.querySelectorAll("[data-pause-camp]").forEach(b=>b.onclick=()=>toggleCampaign(campById(b.dataset.pauseCamp)));
+    m.querySelectorAll("[data-camp-rep]").forEach(b=>b.onclick=()=>openCampaignReport(b.dataset.campRep));
+    m.querySelectorAll("[data-del-camp]").forEach(b=>b.onclick=()=>{ const c=campById(b.dataset.delCamp); confirmBox(`Supprimer la campagne « ${c.name} » ?`,"Ses visuels quittent les écrans sous 20 s. Les diffusions restent dans le reporting par média et par écran.",()=>deleteCampaign(c)); });
+  }
   if (v==="reports"){
+    m.querySelectorAll("[data-camp-rep]").forEach(b=>{ const go=()=>openCampaignReport(b.dataset.campRep, dayKey(addDays(-(S.range-1))), dayKey()); b.onclick=go; b.onkeydown=e=>{ if(e.key==="Enter") go(); }; });
     $("#repR").onchange=e=>{S.range=+e.target.value; render();};
     $("#repD").onchange=e=>{S.repDisplay=e.target.value; render();};
     $("#csv").onclick=exportCsv;
@@ -846,7 +1005,7 @@ async function afterLogin(session){
   if (staff.error || staff.data!==true){ await S.sb.auth.signOut(); S.user=null; showLogin(staff.error ? "Impossible de vérifier vos droits : le schéma SQL est-il installé ?" : `${session.user.email} n'est pas dans l'équipe autorisée (table staff).`); return; }
   $("#login").hidden=true; $("#app").hidden=false; $("#who").textContent=session.user.email;
   renderNav(); render(); loadAll();
-  clearInterval(boot.t); boot.t=setInterval(()=>{ if(!document.hidden){ loadAll(); S.rep={}; } },20000);
+  clearInterval(boot.t); boot.t=setInterval(()=>{ if(!document.hidden){ loadAll(); S.rep={}; S.camp={}; } },20000);
 }
 async function boot(){
   if(!window.supabase || !CFG.supabaseUrl || /VOTRE-PROJET/.test(CFG.supabaseUrl)){ showLogin("Renseignez l'URL et la clé anon de votre projet Supabase dans config.js."); $("#loginForm").hidden=true; return; }
