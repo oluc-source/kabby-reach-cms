@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Kabby+ Reach</title>
+<link rel="icon" type="image/png" href="favicon.png">
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -40,7 +41,8 @@ h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:
 
 .app{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100%}
 .rail{background:var(--panel);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh}
-.brand{display:flex;align-items:baseline;gap:8px;padding:0 8px}
+.brand{display:flex;align-items:center;gap:8px;padding:0 8px}
+.brand-logo{height:40px;width:auto;display:block}
 .brand b{font-family:var(--f-display);font-size:24px;font-weight:700;letter-spacing:-.02em}
 .brand b i{font-style:normal;color:var(--neon)}
 .brand span{font-family:var(--f-mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
@@ -174,23 +176,26 @@ tr:last-child td{border-bottom:0}
 .maplegend{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;font-size:12px;color:var(--muted);padding:10px 6px 2px}
 .maplegend>span{display:inline-flex;align-items:center;gap:6px}
 /* voitures */
-.car{position:relative;width:46px;height:46px;display:grid;place-items:center;cursor:pointer}
-.car-rot{display:block;line-height:0;transition:transform .6s ease;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
-.car-body{stroke:#fff;stroke-width:2;fill:var(--good)}
+.car{position:relative;width:48px;height:48px;display:grid;place-items:center;cursor:pointer}
+.car-rot{display:block;line-height:0;transition:transform .8s ease;filter:drop-shadow(0 2px 4px rgba(25,41,151,.45)) drop-shadow(0 0 1px rgba(0,0,0,.4))}
+.car-body{stroke:#fff;stroke-width:2.2}
 .car-sign{fill:#ffd400;stroke:rgba(0,0,0,.25);stroke-width:.6}
-.car.st-stale .car-body,.car-mini.st-stale .car-body{fill:var(--warn)}
-.car.st-off .car-body,.car-mini.st-off .car-body{fill:var(--bad)}
-.car.st-off .car-rot{opacity:.8}
-.car-mini.st-on .car-body{fill:var(--good)} .car-mini.st-none .car-body{fill:var(--muted)}
-.car-ring{position:absolute;inset:6px;border-radius:50%;background:color-mix(in srgb,var(--good) 30%,transparent);opacity:0}
-.car.moving .car-ring{animation:carpulse 1.8s ease-out infinite}
-@keyframes carpulse{0%{transform:scale(.5);opacity:.9}100%{transform:scale(1.7);opacity:0}}
+.car-badge{position:absolute;top:5px;right:5px;width:12px;height:12px;border-radius:50%;border:2px solid #fff;background:var(--good);box-shadow:0 1px 3px rgba(0,0,0,.35);z-index:2}
+.car.st-stale .car-badge{background:var(--warn)}
+.car.st-off .car-badge{background:var(--bad)}
+.car.st-off .car-rot{filter:grayscale(.75) drop-shadow(0 1px 2px rgba(0,0,0,.35));opacity:.7}
+.car-ring{position:absolute;inset:4px;border-radius:50%;background:radial-gradient(circle,rgba(255,45,155,.55),rgba(59,73,255,.25) 60%,transparent 70%);opacity:0}
+.car.moving .car-ring{animation:carpulse 1.6s ease-out infinite}
+@keyframes carpulse{0%{transform:scale(.45);opacity:.95}100%{transform:scale(1.75);opacity:0}}
 @media (prefers-reduced-motion:reduce){.car.moving .car-ring{animation:none}.car-rot{transition:none}}
-.car-label{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);white-space:nowrap;background:var(--panel);color:var(--fg);border:1px solid var(--line);box-shadow:var(--shadow);font:600 12px/1.2 var(--f-body);padding:4px 8px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .15s}
+.car-label{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);white-space:nowrap;background:linear-gradient(90deg,#3b49ff,#ff2d9b);color:#fff;font:600 12px/1.2 var(--f-body);padding:4px 9px;border-radius:999px;box-shadow:0 4px 12px rgba(59,73,255,.35);opacity:0;pointer-events:none;transition:opacity .15s}
 .car:hover .car-label,.car.sel .car-label{opacity:1}
-.car.sel .car-rot{filter:drop-shadow(0 0 0 var(--accent)) drop-shadow(0 0 6px var(--accent))}
-.car-mini{display:inline-block;line-height:0;margin-right:8px;vertical-align:middle}
-.car-mini svg{width:12px;height:19px}
+.car.sel .car-rot{filter:drop-shadow(0 0 7px #ff2d9b) drop-shadow(0 0 2px #fff)}
+.car-mini{position:relative;display:inline-block;line-height:0;margin-right:8px;vertical-align:middle}
+.car-mini svg{width:13px;height:20px}
+.car-mini.st-off svg,.car-mini.st-none svg{filter:grayscale(.8);opacity:.7}
+.sdot{display:inline-block;width:9px;height:9px;border-radius:50%;border:1.5px solid var(--panel);margin-left:-11px;margin-right:6px;vertical-align:-6px;position:relative}
+.sdot.st-on{background:var(--good)}.sdot.st-stale{background:var(--warn)}.sdot.st-off{background:var(--bad)}.sdot.st-none{background:var(--muted)}
 tr.sel td{background:color-mix(in srgb,var(--accent) 8%,transparent)}
 /* habillage MapLibre aux couleurs du CMS */
 .maplibregl-map{font:inherit}
@@ -300,7 +305,7 @@ tr.click{cursor:pointer} tr.click:hover td{background:color-mix(in srgb,var(--ac
 <body>
 <div class="login" id="login" hidden>
   <form id="loginForm">
-    <div class="brand"><b>kabby<i>+</i></b><span>Reach</span></div>
+    <div class="brand"><img class="brand-logo" src="logo-kabby.png" alt="kabby+" width="174" height="82"><span>Reach</span></div>
     <div class="field"><label for="lEmail">E-mail</label><input id="lEmail" type="email" autocomplete="username" required></div>
     <div class="field"><label for="lPass">Mot de passe</label><input id="lPass" type="password" autocomplete="current-password" required></div>
     <button class="btn pri" id="loginGo" type="submit" style="justify-content:center">Se connecter</button>
@@ -310,7 +315,7 @@ tr.click{cursor:pointer} tr.click:hover td{background:color-mix(in srgb,var(--ac
 </div>
 <div id="app" class="app" hidden>
   <aside class="rail">
-    <div class="brand"><b>kabby<i>+</i></b><span>Reach</span></div>
+    <div class="brand"><img class="brand-logo" src="logo-kabby.png" alt="kabby+" width="174" height="82"><span>Reach</span></div>
     <nav class="nav" id="nav"></nav>
     <div class="rail-foot">
       <div class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">Connexion…</span></div>
@@ -733,22 +738,25 @@ function mapRows(){
   });
 }
 /* Pictogramme : voiture vue de dessus, orientée vers le nord (rotation = cap GPS) */
+let carSeq=0;
 function carSvg(){
+  const g="kg"+(++carSeq);
   return `<svg viewBox="0 0 28 44" width="26" height="41" aria-hidden="true">
-    <rect x="3" y="2" width="22" height="40" rx="9" class="car-body"/>
+    <defs><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff2d9b"/><stop offset=".55" stop-color="#b21b78"/><stop offset="1" stop-color="#3b49ff"/></linearGradient></defs>
+    <rect x="3" y="2" width="22" height="40" rx="9" class="car-body" fill="url(#${g})"/>
     <path d="M7.5 14.5Q14 10 20.5 14.5L19 20H9Z" fill="rgba(255,255,255,.88)"/>
     <path d="M9 31H19L20.5 35.5Q14 39 7.5 35.5Z" fill="rgba(255,255,255,.55)"/>
     <rect x="10.5" y="23" width="7" height="4.5" rx="1.6" class="car-sign"/>
     <circle cx="8" cy="5" r="1.4" fill="#fff8c2"/><circle cx="20" cy="5" r="1.4" fill="#fff8c2"/></svg>`;
 }
-function carIcon(st){ return `<span class="car-ring"></span><span class="car-rot">${carSvg()}</span>`; }
+function carIcon(st){ return `<span class="car-ring"></span><span class="car-badge"></span><span class="car-rot">${carSvg()}</span>`; }
 function vMap(){
   const rows = mapRows(); const f = S.mapFilter || "all";
   const on = rows.filter(r => devOnline(r.v)).length, off = rows.length - on, nopos = rows.filter(r => !r.has).length;
   const moving = rows.filter(r => devOnline(r.v) && +r.speed > 3).length;
   const list = rows.filter(r => f==="all" || (f==="on" ? devOnline(r.v) : !devOnline(r.v)))
     .sort((a,b) => (devOnline(b.v)-devOnline(a.v)) || a.name.localeCompare(b.name))
-    .map(r => `<tr class="click ${S.mapOpen===r.v.player_id?"sel":""}" data-fly="${esc(r.v.player_id)}" tabindex="0"><td><span class="car-mini st-${r.has?r.st:"none"}">${carSvg()}</span><b>${esc(r.name)}</b><div class="hint">${esc(r.loc||fmtPid(r.v.player_id))}</div></td>
+    .map(r => `<tr class="click ${S.mapOpen===r.v.player_id?"sel":""}" data-fly="${esc(r.v.player_id)}" tabindex="0"><td><span class="car-mini st-${r.has?r.st:"none"}">${carSvg()}</span><span class="sdot st-${r.has?r.st:"none"}"></span><b>${esc(r.name)}</b><div class="hint">${esc(r.loc||fmtPid(r.v.player_id))}</div></td>
       <td>${devOnline(r.v)?onPill:`<span class="pill off"><span class="dot"></span>Hors ligne</span>`}<div class="hint">signal ${esc(fmtAgo(r.v.last_seen))}</div></td>
       <td>${r.has?`${esc(fmtAgo(r.v.pos_at))}${r.speed!=null?`<div class="hint">${r.speed} km/h</div>`:""}`:'<span class="hint">aucune position</span>'}</td></tr>`).join("");
   return head("Carte","Les taxis équipés, en temps réel : position, statut et pub à l'écran",
@@ -762,7 +770,7 @@ function vMap(){
   </div>
   <div class="mapwrap">
     <section class="panel mappanel"><div id="mapSlot" class="mapslot"></div>
-      <div class="maplegend"><span><span class="car-mini st-on">${carSvg()}</span>En ligne</span><span><span class="car-mini st-stale">${carSvg()}</span>Position de plus de 15 min</span><span><span class="car-mini st-off">${carSvg()}</span>Hors ligne</span><span class="hint">La voiture pointe dans le sens de circulation.</span></div></section>
+      <div class="maplegend"><span><span class="car-mini st-on">${carSvg()}</span><span class="sdot st-on"></span>En ligne</span><span><span class="car-mini st-stale">${carSvg()}</span><span class="sdot st-stale"></span>Position de plus de 15 min</span><span><span class="car-mini st-off">${carSvg()}</span><span class="sdot st-off"></span>Hors ligne</span><span class="hint">Positions en direct (toutes les 10 s en circulation) · la voiture pointe dans le sens de la marche.</span></div></section>
     <section class="panel"><div class="ph"><h2>Taxis</h2><p>${nopos?`${nopos} sans position`:"tous localisés"}</p></div>
       <div class="tbl-wrap" style="max-height:540px;overflow:auto"><table><thead><tr><th>Écran</th><th>Statut</th><th>Position</th></tr></thead><tbody>${list||`<tr><td colspan="3" class="empty">${S.loaded?"Aucun écran pour ce filtre.":"Chargement…"}</td></tr>`}</tbody></table></div></section>
   </div>`;
@@ -811,7 +819,9 @@ async function mapStyle(theme){
 async function bindMap(){
   const slot=$("#mapSlot"); if(!slot) return;
   if (!window.maplibregl){ slot.innerHTML='<div class="empty">Carte indisponible (bibliothèque de cartes non chargée).</div>'; return; }
+  if (!S.map && S.mapInit){ await S.mapInit; }
   if (!S.map){
+    let done; S.mapInit=new Promise(r=>done=r);
     S.mapEl=document.createElement("div"); S.mapEl.className="mapcanvas"; slot.appendChild(S.mapEl);
     S.mapThemeNow=mapTheme();
     let style; try{ style=await mapStyle(S.mapThemeNow); }catch(e){ style="https://tiles.openfreemap.org/styles/positron"; }
@@ -820,11 +830,41 @@ async function bindMap(){
     S.map.addControl(new maplibregl.AttributionControl({compact:true, customAttribution:'<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> · © contributeurs <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}),"bottom-right");
     S.mapMarkers={}; S.mapFitted=false;
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", async ()=>{ const t=mapTheme(); if(t!==S.mapThemeNow && S.map){ S.mapThemeNow=t; try{ S.map.setStyle(await mapStyle(t)); }catch(e){} } });
-  } else if (S.mapEl.parentNode!==slot) slot.appendChild(S.mapEl);
+    done();
+  }
+  if (!$("#mapSlot")) return;
+  const slotNow=$("#mapSlot"); if (S.mapEl.parentNode!==slotNow) slotNow.appendChild(S.mapEl);
   requestAnimationFrame(()=>S.map.resize());
+  if (!S.mapPoll) S.mapPoll=setInterval(mapPollTick, 5000);
+  mapUpdate();
+  const f=S.mapFilter||"all"; const rows=mapRows().filter(r=>r.has && (f==="all"||(f==="on"?devOnline(r.v):!devOnline(r.v))));
+  if (!S.mapFitted && rows.length){ mapFitAll(rows, false); S.mapFitted=true; }
+}
+/* Positions en direct : on n'interroge que les positions, toutes les 5 s, tant que l'onglet Carte est affiché */
+async function mapPollTick(){
+  if (currentView()!=="map" || document.hidden || !S.map || S.mapPolling) return;
+  S.mapPolling=true;
+  try{
+    const rows=await q(S.sb.from("devices").select("player_id,display_id,last_pos,pos_at,last_seen,now_playing"));
+    for (const r of rows){ const v=S.devices.find(x=>x.player_id===r.player_id); if (v) Object.assign(v,r); }
+    mapUpdate();
+  }catch(e){ /* réessai au prochain tour */ } finally { S.mapPolling=false; }
+}
+/* Glissement continu d'une position à l'autre (durée = intervalle entre deux positions reçues, 2 à 12 s) */
+function glide(mk, to, dur){
+  cancelAnimationFrame(mk._raf);
+  const from=mk.getLngLat();
+  const far=Math.abs(from.lng-to[0])>0.05 || Math.abs(from.lat-to[1])>0.05;
+  if (far || dur<=0 || matchMedia("(prefers-reduced-motion: reduce)").matches){ mk.setLngLat(to); return; }
+  const t0=performance.now();
+  const step=now=>{ const k=Math.min(1,(now-t0)/dur); mk.setLngLat([from.lng+(to[0]-from.lng)*k, from.lat+(to[1]-from.lat)*k]); if(k<1) mk._raf=requestAnimationFrame(step); };
+  mk._raf=requestAnimationFrame(step);
+}
+function mapUpdate(){
+  if (!S.map) return;
   const f=S.mapFilter||"all"; const rows=mapRows().filter(r=>r.has && (f==="all"||(f==="on"?devOnline(r.v):!devOnline(r.v))));
   const keep=new Set(rows.map(r=>r.v.player_id));
-  for (const id of Object.keys(S.mapMarkers)) if(!keep.has(id)){ S.mapMarkers[id].remove(); delete S.mapMarkers[id]; }
+  for (const id of Object.keys(S.mapMarkers)) if(!keep.has(id)){ cancelAnimationFrame(S.mapMarkers[id]._raf); S.mapMarkers[id].remove(); delete S.mapMarkers[id]; }
   for (const r of rows){
     const id=r.v.player_id; let mk=S.mapMarkers[id];
     if (!mk){
@@ -832,16 +872,22 @@ async function bindMap(){
       const pop=new maplibregl.Popup({offset:22, closeButton:true, maxWidth:"280px", className:"kpop"});
       pop.on("open",()=>{ S.mapOpen=id; $$('tr[data-fly]').forEach(t=>t.classList.toggle("sel",t.dataset.fly===id)); });
       pop.on("close",()=>{ if(S.mapOpen===id) S.mapOpen=null; $$('tr[data-fly]').forEach(t=>t.classList.remove("sel")); });
+      pop.on("open",()=>{ if(mk && mk._popHtml){ pop.setHTML(mk._popHtml); mk._popHtml=null; } });
       mk=new maplibregl.Marker({element:el, anchor:"center"}).setLngLat([r.lon,r.lat]).setPopup(pop).addTo(S.map);
+      mk._posAt=r.v.pos_at; mk._rot=r.heading||0;
       S.mapMarkers[id]=mk;
+    } else if (r.v.pos_at && r.v.pos_at!==mk._posAt){
+      const dt=mk._posAt ? ts(r.v.pos_at)-ts(mk._posAt) : 0;
+      glide(mk,[r.lon,r.lat], Math.max(2000, Math.min(12000, dt)));
+      mk._posAt=r.v.pos_at;
     }
-    mk.setLngLat([r.lon,r.lat]);
+    if (r.heading!=null){ let d=((r.heading-(mk._rot%360))+540)%360-180; mk._rot=(mk._rot||0)+d; } // rotation par le plus court chemin
     const el=mk.getElement(); el.className=`car st-${r.st}${devOnline(r.v)&&+r.speed>3?" moving":""}${S.mapOpen===id?" sel":""}`;
-    el.querySelector(".car-rot").style.transform=`rotate(${r.heading||0}deg)`;
+    el.querySelector(".car-rot").style.transform=`rotate(${mk._rot||0}deg)`;
     el.querySelector(".car-label").textContent=r.name; el.title=`${r.name} · ${MAP_LABEL[r.st]}`;
-    mk.getPopup().setHTML(popupHtml(r));
+    if (mk.getPopup().isOpen() || !mk._popSet){ mk.getPopup().setHTML(popupHtml(r)); mk._popSet=true; }
+    else mk._popHtml=popupHtml(r);
   }
-  if (!S.mapFitted && rows.length){ mapFitAll(rows, false); S.mapFitted=true; }
 }
 function mapFitAll(rows=mapRows().filter(r=>r.has), animate=true){
   if(!S.map || !rows.length) return;
