@@ -167,11 +167,52 @@ tr:last-child td{border-bottom:0}
 .check{display:flex;align-items:center;gap:8px;font-size:14px}
 .mapwrap{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:16px;align-items:start}
 @media (max-width:900px){.mapwrap{grid-template-columns:1fr}}
-.mapslot{height:560px;border-radius:10px;overflow:hidden}
-@media (max-width:900px){.mapslot{height:380px}}
+.mappanel{padding:10px}
+.mapslot{height:600px;border-radius:12px;overflow:hidden;background:var(--panel-2);border:1px solid var(--line)}
+@media (max-width:900px){.mapslot{height:400px}}
 .mapcanvas{width:100%;height:100%}
-.mdot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;vertical-align:0;box-shadow:0 0 0 2px var(--panel)}
-.leaflet-container{font:inherit}
+.maplegend{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;font-size:12px;color:var(--muted);padding:10px 6px 2px}
+.maplegend>span{display:inline-flex;align-items:center;gap:6px}
+/* voitures */
+.car{position:relative;width:46px;height:46px;display:grid;place-items:center;cursor:pointer}
+.car-rot{display:block;line-height:0;transition:transform .6s ease;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
+.car-body{stroke:#fff;stroke-width:2;fill:var(--good)}
+.car-sign{fill:#ffd400;stroke:rgba(0,0,0,.25);stroke-width:.6}
+.car.st-stale .car-body,.car-mini.st-stale .car-body{fill:var(--warn)}
+.car.st-off .car-body,.car-mini.st-off .car-body{fill:var(--bad)}
+.car.st-off .car-rot{opacity:.8}
+.car-mini.st-on .car-body{fill:var(--good)} .car-mini.st-none .car-body{fill:var(--muted)}
+.car-ring{position:absolute;inset:6px;border-radius:50%;background:color-mix(in srgb,var(--good) 30%,transparent);opacity:0}
+.car.moving .car-ring{animation:carpulse 1.8s ease-out infinite}
+@keyframes carpulse{0%{transform:scale(.5);opacity:.9}100%{transform:scale(1.7);opacity:0}}
+@media (prefers-reduced-motion:reduce){.car.moving .car-ring{animation:none}.car-rot{transition:none}}
+.car-label{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);white-space:nowrap;background:var(--panel);color:var(--fg);border:1px solid var(--line);box-shadow:var(--shadow);font:600 12px/1.2 var(--f-body);padding:4px 8px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .15s}
+.car:hover .car-label,.car.sel .car-label{opacity:1}
+.car.sel .car-rot{filter:drop-shadow(0 0 0 var(--accent)) drop-shadow(0 0 6px var(--accent))}
+.car-mini{display:inline-block;line-height:0;margin-right:8px;vertical-align:middle}
+.car-mini svg{width:12px;height:19px}
+tr.sel td{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+/* habillage MapLibre aux couleurs du CMS */
+.maplibregl-map{font:inherit}
+.maplibregl-ctrl-group{background:var(--panel)!important;border:1px solid var(--line);border-radius:10px!important;box-shadow:var(--shadow)!important;overflow:hidden}
+.maplibregl-ctrl-group button{width:34px;height:34px}
+.maplibregl-ctrl-group button+button{border-top:1px solid var(--line)!important}
+.maplibregl-ctrl-group button .maplibregl-ctrl-icon{filter:none}
+:root[data-theme="dark"] .maplibregl-ctrl-group button .maplibregl-ctrl-icon{filter:invert(1)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .maplibregl-ctrl-group button .maplibregl-ctrl-icon{filter:invert(1)}}
+.maplibregl-ctrl-attrib{background:color-mix(in srgb,var(--panel) 85%,transparent)!important;color:var(--muted);font-size:11px}
+.maplibregl-ctrl-attrib,.maplibregl-ctrl-attrib a{color:var(--muted)!important}
+:root[data-theme="dark"] .maplibregl-ctrl-attrib-button{filter:invert(1)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .maplibregl-ctrl-attrib-button{filter:invert(1)}}
+.kpop .maplibregl-popup-content{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:12px 14px}
+.kpop .maplibregl-popup-close-button{color:var(--muted);font-size:18px;padding:2px 8px}
+.kpop.maplibregl-popup-anchor-bottom .maplibregl-popup-tip{border-top-color:var(--panel)}
+.kpop.maplibregl-popup-anchor-top .maplibregl-popup-tip{border-bottom-color:var(--panel)}
+.kpop.maplibregl-popup-anchor-left .maplibregl-popup-tip{border-right-color:var(--panel)}
+.kpop.maplibregl-popup-anchor-right .maplibregl-popup-tip{border-left-color:var(--panel)}
+.mpop-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 18px 2px 0}
+.mpop-h b{font-family:var(--f-display);font-size:15px}
+.mpop .specs{margin-top:8px}
 .prog{height:8px;border-radius:99px;background:var(--panel-2);overflow:hidden}
 .prog i{display:block;height:100%;background:var(--accent);border-radius:99px}
 .dpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;max-height:260px;overflow:auto;padding:2px}
@@ -281,8 +322,8 @@ tr.click{cursor:pointer} tr.click:hover td{background:color-mix(in srgb,var(--ac
 </div>
 <div id="modalRoot"></div>
 <div id="toastRoot"></div>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <script>
@@ -291,6 +332,7 @@ tr.click{cursor:pointer} tr.click:hover td{background:color-mix(in srgb,var(--ac
 const CFG = window.KABBY_CONFIG || {};
 /* ---------- helpers ---------- */
 const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const pad = n => String(n).padStart(2,"0");
 const dayKey = (d=new Date()) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -680,61 +722,129 @@ function exportCampCsv(c, r){
 
 /* Carte des écrans (position GPS envoyée par les tablettes, application v8+) */
 const POS_STALE_MS = 15*60*1000;
-const MAPC = { on:"#16a34a", off:"#dc2626", stale:"#f59e0b", none:"#94a3b8" };
 function mapState(v){ if (!devOnline(v)) return "off"; if (!v.pos_at || Date.now()-ts(v.pos_at) > POS_STALE_MS) return "stale"; return "on"; }
+const MAP_LABEL = { on:"En ligne", stale:"En ligne · position ancienne", off:"Hors ligne" };
 function mapRows(){
   return S.devices.filter(v => v.display_id || Date.now()-ts(v.last_seen) < 7*86400e3).map(v => {
     const d = v.display_id ? dispById(v.display_id) : null; const p = v.last_pos;
     const has = p && isFinite(+p.lat) && isFinite(+p.lon);
-    return { v, d, name: d?.name || `Player ${fmtPid(v.player_id)} (non associé)`, loc: d?.location || "", has, lat: has?+p.lat:null, lon: has?+p.lon:null, st: mapState(v), speed: p?.speed, acc: p?.acc };
+    return { v, d, name: d?.name || `Player ${fmtPid(v.player_id)} (non associé)`, loc: d?.location || "", has, lat: has?+p.lat:null, lon: has?+p.lon:null,
+      st: mapState(v), speed: p?.speed, acc: p?.acc, heading: isFinite(+p?.heading) ? +p.heading : null };
   });
 }
+/* Pictogramme : voiture vue de dessus, orientée vers le nord (rotation = cap GPS) */
+function carSvg(){
+  return `<svg viewBox="0 0 28 44" width="26" height="41" aria-hidden="true">
+    <rect x="3" y="2" width="22" height="40" rx="9" class="car-body"/>
+    <path d="M7.5 14.5Q14 10 20.5 14.5L19 20H9Z" fill="rgba(255,255,255,.88)"/>
+    <path d="M9 31H19L20.5 35.5Q14 39 7.5 35.5Z" fill="rgba(255,255,255,.55)"/>
+    <rect x="10.5" y="23" width="7" height="4.5" rx="1.6" class="car-sign"/>
+    <circle cx="8" cy="5" r="1.4" fill="#fff8c2"/><circle cx="20" cy="5" r="1.4" fill="#fff8c2"/></svg>`;
+}
+function carIcon(st){ return `<span class="car-ring"></span><span class="car-rot">${carSvg()}</span>`; }
 function vMap(){
   const rows = mapRows(); const f = S.mapFilter || "all";
   const on = rows.filter(r => devOnline(r.v)).length, off = rows.length - on, nopos = rows.filter(r => !r.has).length;
+  const moving = rows.filter(r => devOnline(r.v) && +r.speed > 3).length;
   const list = rows.filter(r => f==="all" || (f==="on" ? devOnline(r.v) : !devOnline(r.v)))
     .sort((a,b) => (devOnline(b.v)-devOnline(a.v)) || a.name.localeCompare(b.name))
-    .map(r => `<tr class="click" data-fly="${esc(r.v.player_id)}" tabindex="0"><td><span class="mdot" style="background:${r.has?MAPC[r.st]:MAPC.none}"></span><b>${esc(r.name)}</b><div class="hint">${esc(r.loc||fmtPid(r.v.player_id))}</div></td>
+    .map(r => `<tr class="click ${S.mapOpen===r.v.player_id?"sel":""}" data-fly="${esc(r.v.player_id)}" tabindex="0"><td><span class="car-mini st-${r.has?r.st:"none"}">${carSvg()}</span><b>${esc(r.name)}</b><div class="hint">${esc(r.loc||fmtPid(r.v.player_id))}</div></td>
       <td>${devOnline(r.v)?onPill:`<span class="pill off"><span class="dot"></span>Hors ligne</span>`}<div class="hint">signal ${esc(fmtAgo(r.v.last_seen))}</div></td>
       <td>${r.has?`${esc(fmtAgo(r.v.pos_at))}${r.speed!=null?`<div class="hint">${r.speed} km/h</div>`:""}`:'<span class="hint">aucune position</span>'}</td></tr>`).join("");
-  return head("Carte","Position des écrans en mobilité, mise à jour à chaque synchronisation (environ 1 min)",
-      `<div class="chips">${[["all","Tous",rows.length],["on","En ligne",on],["off","Hors ligne",off]].map(([k,l,n])=>`<button class="chip ${f===k?"on":""}" data-mapf="${k}">${l} · ${n}</button>`).join("")}</div>`) + `
+  return head("Carte","Les taxis équipés, en temps réel : position, statut et pub à l'écran",
+      `<div class="chips">${[["all","Tous",rows.length],["on","En ligne",on],["off","Hors ligne",off]].map(([k,l,n])=>`<button class="chip ${f===k?"on":""}" data-mapf="${k}">${l} · ${n}</button>`).join("")}</div>
+       <button class="btn" id="mapFit">${ICONS.map}Recentrer</button>`) + `
+  <div class="kpis">
+    <div class="kpi hl"><span class="lbl">En ligne</span><span class="val num">${on}<span style="color:var(--muted);font-size:18px"> / ${rows.length}</span></span><span class="sub">signal reçu il y a moins de 3 min</span></div>
+    <div class="kpi"><span class="lbl">En circulation</span><span class="val num">${moving}</span><span class="sub">plus de 3 km/h</span></div>
+    <div class="kpi"><span class="lbl">Hors ligne</span><span class="val num">${off}</span><span class="sub">dernière position affichée</span></div>
+    <div class="kpi"><span class="lbl">Sans position</span><span class="val num">${nopos}</span><span class="sub">appli &lt; v8 ou GPS refusé</span></div>
+  </div>
   <div class="mapwrap">
     <section class="panel mappanel"><div id="mapSlot" class="mapslot"></div>
-      <div class="legend" style="margin-top:8px"><span><i style="background:${MAPC.on}"></i>En ligne</span><span><i style="background:${MAPC.stale}"></i>En ligne, position de plus de 15 min</span><span><i style="background:${MAPC.off}"></i>Hors ligne (dernière position connue)</span></div></section>
-    <section class="panel"><div class="ph"><h2>Écrans</h2><p>${nopos?`${nopos} sans position`:"tous localisés"}</p></div>
-      <div class="tbl-wrap" style="max-height:520px;overflow:auto"><table><thead><tr><th>Écran</th><th>Statut</th><th>Position</th></tr></thead><tbody>${list||`<tr><td colspan="3" class="empty">${S.loaded?"Aucun écran pour ce filtre.":"Chargement…"}</td></tr>`}</tbody></table></div>
-      ${nopos?`<p class="hint" style="margin-top:8px">Un écran sans position : tablette en version antérieure à la v8, autorisation de localisation refusée, ou GPS pas encore disponible.</p>`:""}</section>
+      <div class="maplegend"><span><span class="car-mini st-on">${carSvg()}</span>En ligne</span><span><span class="car-mini st-stale">${carSvg()}</span>Position de plus de 15 min</span><span><span class="car-mini st-off">${carSvg()}</span>Hors ligne</span><span class="hint">La voiture pointe dans le sens de circulation.</span></div></section>
+    <section class="panel"><div class="ph"><h2>Taxis</h2><p>${nopos?`${nopos} sans position`:"tous localisés"}</p></div>
+      <div class="tbl-wrap" style="max-height:540px;overflow:auto"><table><thead><tr><th>Écran</th><th>Statut</th><th>Position</th></tr></thead><tbody>${list||`<tr><td colspan="3" class="empty">${S.loaded?"Aucun écran pour ce filtre.":"Chargement…"}</td></tr>`}</tbody></table></div></section>
   </div>`;
 }
 function popupHtml(r){
   const now = r.v.now_playing?.mediaId ? (mediaById(r.v.now_playing.mediaId)?.name||"") : "";
-  return `<b>${esc(r.name)}</b><br>${esc(r.loc||"")}${r.loc?"<br>":""}Player ${esc(fmtPid(r.v.player_id))}<br>
-    ${devOnline(r.v)?'<span style="color:#16a34a">● En ligne</span>':'<span style="color:#dc2626">● Hors ligne</span>'} · signal ${esc(fmtAgo(r.v.last_seen))}<br>
-    Position ${esc(fmtAgo(r.v.pos_at))}${r.speed!=null?` · ${r.speed} km/h`:""}${r.acc!=null?` · ± ${r.acc} m`:""}${now&&devOnline(r.v)?`<br>À l'écran : ${esc(now)}`:""}`;
+  const pill = r.st==="on" ? onPill : r.st==="stale" ? `<span class="pill warn">Position ancienne</span>` : `<span class="pill off"><span class="dot"></span>Hors ligne</span>`;
+  return `<div class="mpop"><div class="mpop-h"><b>${esc(r.name)}</b>${pill}</div>${r.loc?`<div class="hint">${esc(r.loc)}</div>`:""}
+    <dl class="specs"><dt>Player</dt><dd>${esc(fmtPid(r.v.player_id))}</dd><dt>Signal</dt><dd>${esc(fmtAgo(r.v.last_seen))}</dd>
+    <dt>Position</dt><dd>${esc(fmtAgo(r.v.pos_at))}${r.acc!=null?` · ±${r.acc} m`:""}</dd>${r.speed!=null?`<dt>Vitesse</dt><dd>${r.speed} km/h</dd>`:""}
+    ${now&&devOnline(r.v)?`<dt>À l'écran</dt><dd>${esc(now)}</dd>`:""}</dl></div>`;
 }
-function bindMap(){
-  const slot=$("#mapSlot"); if(!slot) return;
-  if (!window.L){ slot.innerHTML='<div class="empty">Carte indisponible (bibliothèque de cartes non chargée).</div>'; return; }
-  if (!S.map){
-    S.mapEl=document.createElement("div"); S.mapEl.className="mapcanvas";
-    slot.appendChild(S.mapEl);
-    S.map=L.map(S.mapEl,{zoomControl:true}).setView([48.8566,2.3522],11);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,
-      attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">contributeurs OpenStreetMap</a>'}).addTo(S.map);
-    S.mapLayer=L.layerGroup().addTo(S.map); S.mapMarkers={}; S.mapFitted=false;
-  } else slot.appendChild(S.mapEl);
-  setTimeout(()=>S.map.invalidateSize(),0);
-  const f=S.mapFilter||"all"; const rows=mapRows().filter(r=>r.has && (f==="all"||(f==="on"?devOnline(r.v):!devOnline(r.v))));
-  S.mapRebuild=true; S.mapLayer.clearLayers(); S.mapMarkers={}; S.mapRebuild=false;
-  for (const r of rows){
-    const id=r.v.player_id;
-    const m=L.circleMarker([r.lat,r.lon],{radius:9,weight:2,color:"#fff",fillColor:MAPC[r.st],fillOpacity:.95}).bindPopup(popupHtml(r)).bindTooltip(r.name,{direction:"top",offset:[0,-8]});
-    m.on("popupopen",()=>{ S.mapOpen=id; }); m.on("popupclose",()=>{ if(!S.mapRebuild) S.mapOpen=null; });
-    m.addTo(S.mapLayer); S.mapMarkers[id]=m;
+/* Fond de carte vectoriel OpenFreeMap, recoloré aux couleurs du CMS (clair / sombre) */
+const MAP_PAL = {
+  light:{ bg:"#eef0f6", water:"#cfe4ee", park:"#e1eee6", resid:"#e9ebf3", building:"#e2e5ef", minor:"#ffffff", major:"#ffffff", casing:"#d7dbe8", motorway:"#f7dceb", rail:"#cfd3e1", boundary:"#b9bfd3", text:"#5d6279", halo:"#ffffff" },
+  dark: { bg:"#0f1222", water:"#0b2533", park:"#102320", resid:"#131629", building:"#181c33", minor:"#1d2240", major:"#262c4d", casing:"#0b0d17", motorway:"#4a2141", rail:"#262b46", boundary:"#3a4066", text:"#8e94b4", halo:"#0b0d17" }
+};
+function mapTheme(){ const t=document.documentElement.dataset.theme; return t==="dark"||t==="light" ? t : (matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"); }
+async function mapStyle(theme){
+  S.mapBaseStyle = S.mapBaseStyle || await (await fetch("https://tiles.openfreemap.org/styles/positron")).json();
+  const st = JSON.parse(JSON.stringify(S.mapBaseStyle)); const c = MAP_PAL[theme];
+  const set=(l,k,v)=>{ l.paint=l.paint||{}; l.paint[k]=v; };
+  st.layers = st.layers.filter(l => !/shield/.test(l.id) && l.source!=="ne2_shaded");
+  for (const l of st.layers){
+    const id=l.id;
+    if (l.type==="background") set(l,"background-color",c.bg);
+    else if (l.type==="symbol"){ set(l,"text-color",c.text); set(l,"text-halo-color",c.halo); }
+    else if (/water/.test(id)) set(l, l.type==="line"?"line-color":"fill-color", c.water);
+    else if (/park|wood/.test(id)) set(l,"fill-color",c.park);
+    else if (/residential/.test(id)) set(l,"fill-color",c.resid);
+    else if (/ice|glacier/.test(id)) set(l,"fill-color",c.bg);
+    else if (id==="building") { set(l,"fill-color",c.building); if(l.paint["fill-outline-color"]) set(l,"fill-outline-color",c.building); }
+    else if (l.type==="line" && /casing/.test(id)) set(l,"line-color",c.casing);
+    else if (l.type==="line" && /motorway/.test(id)) set(l,"line-color",c.motorway);
+    else if (l.type==="line" && /major/.test(id)) set(l,"line-color",c.major);
+    else if (l.type==="line" && /minor|path|pier|aeroway|taxiway|runway/.test(id)) set(l,"line-color",c.minor);
+    else if (l.type==="fill" && /aeroway|pier/.test(id)) set(l,"fill-color",c.minor);
+    else if (/rail/.test(id)) set(l,"line-color",c.rail);
+    else if (/boundary/.test(id)) set(l,"line-color",c.boundary);
   }
-  if (!S.mapFitted && rows.length){ S.map.fitBounds(L.latLngBounds(rows.map(r=>[r.lat,r.lon])).pad(0.3),{maxZoom:14}); S.mapFitted=true; }
-  if (S.mapOpen && S.mapMarkers[S.mapOpen]) S.mapMarkers[S.mapOpen].openPopup();
+  return st;
+}
+async function bindMap(){
+  const slot=$("#mapSlot"); if(!slot) return;
+  if (!window.maplibregl){ slot.innerHTML='<div class="empty">Carte indisponible (bibliothèque de cartes non chargée).</div>'; return; }
+  if (!S.map){
+    S.mapEl=document.createElement("div"); S.mapEl.className="mapcanvas"; slot.appendChild(S.mapEl);
+    S.mapThemeNow=mapTheme();
+    let style; try{ style=await mapStyle(S.mapThemeNow); }catch(e){ style="https://tiles.openfreemap.org/styles/positron"; }
+    S.map=new maplibregl.Map({ container:S.mapEl, style, center:[2.3522,48.8566], zoom:11, attributionControl:false, pitchWithRotate:false, dragRotate:false });
+    S.map.addControl(new maplibregl.NavigationControl({showCompass:false}),"top-right");
+    S.map.addControl(new maplibregl.AttributionControl({compact:true, customAttribution:'<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> · © contributeurs <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}),"bottom-right");
+    S.mapMarkers={}; S.mapFitted=false;
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", async ()=>{ const t=mapTheme(); if(t!==S.mapThemeNow && S.map){ S.mapThemeNow=t; try{ S.map.setStyle(await mapStyle(t)); }catch(e){} } });
+  } else if (S.mapEl.parentNode!==slot) slot.appendChild(S.mapEl);
+  requestAnimationFrame(()=>S.map.resize());
+  const f=S.mapFilter||"all"; const rows=mapRows().filter(r=>r.has && (f==="all"||(f==="on"?devOnline(r.v):!devOnline(r.v))));
+  const keep=new Set(rows.map(r=>r.v.player_id));
+  for (const id of Object.keys(S.mapMarkers)) if(!keep.has(id)){ S.mapMarkers[id].remove(); delete S.mapMarkers[id]; }
+  for (const r of rows){
+    const id=r.v.player_id; let mk=S.mapMarkers[id];
+    if (!mk){
+      const el=document.createElement("div"); el.className="car"; el.innerHTML=carIcon(r.st)+`<span class="car-label"></span>`;
+      const pop=new maplibregl.Popup({offset:22, closeButton:true, maxWidth:"280px", className:"kpop"});
+      pop.on("open",()=>{ S.mapOpen=id; $$('tr[data-fly]').forEach(t=>t.classList.toggle("sel",t.dataset.fly===id)); });
+      pop.on("close",()=>{ if(S.mapOpen===id) S.mapOpen=null; $$('tr[data-fly]').forEach(t=>t.classList.remove("sel")); });
+      mk=new maplibregl.Marker({element:el, anchor:"center"}).setLngLat([r.lon,r.lat]).setPopup(pop).addTo(S.map);
+      S.mapMarkers[id]=mk;
+    }
+    mk.setLngLat([r.lon,r.lat]);
+    const el=mk.getElement(); el.className=`car st-${r.st}${devOnline(r.v)&&+r.speed>3?" moving":""}${S.mapOpen===id?" sel":""}`;
+    el.querySelector(".car-rot").style.transform=`rotate(${r.heading||0}deg)`;
+    el.querySelector(".car-label").textContent=r.name; el.title=`${r.name} · ${MAP_LABEL[r.st]}`;
+    mk.getPopup().setHTML(popupHtml(r));
+  }
+  if (!S.mapFitted && rows.length){ mapFitAll(rows, false); S.mapFitted=true; }
+}
+function mapFitAll(rows=mapRows().filter(r=>r.has), animate=true){
+  if(!S.map || !rows.length) return;
+  if (rows.length===1){ S.map.jumpTo({center:[rows[0].lon,rows[0].lat], zoom:14}); return; }
+  const b=new maplibregl.LngLatBounds(); rows.forEach(r=>b.extend([r.lon,r.lat]));
+  S.map.fitBounds(b,{padding:70, maxZoom:14, animate});
 }
 
 /* Reports */
@@ -804,7 +914,11 @@ function bindView(v){
   }
   if (v==="map"){
     m.querySelectorAll("[data-mapf]").forEach(b=>b.onclick=()=>{ S.mapFilter=b.dataset.mapf; render(); });
-    m.querySelectorAll("[data-fly]").forEach(tr=>{ const go=()=>{ const mk=S.mapMarkers?.[tr.dataset.fly]; if(!mk){ toast("Pas encore de position pour cet écran"); return; } S.mapOpen=tr.dataset.fly; S.map.flyTo(mk.getLatLng(),15); mk.openPopup(); window.scrollTo({top:0,behavior:"smooth"}); }; tr.onclick=go; tr.onkeydown=e=>{ if(e.key==="Enter") go(); }; });
+    $("#mapFit").onclick=()=>mapFitAll();
+    m.querySelectorAll("[data-fly]").forEach(tr=>{ const go=()=>{ const mk=S.mapMarkers?.[tr.dataset.fly]; if(!mk){ toast("Pas encore de position pour ce taxi"); return; }
+      Object.values(S.mapMarkers).forEach(x=>{ if(x!==mk && x.getPopup().isOpen()) x.togglePopup(); });
+      S.map.flyTo({center:mk.getLngLat(), zoom:Math.max(S.map.getZoom(),15), speed:1.4}); if(!mk.getPopup().isOpen()) mk.togglePopup(); window.scrollTo({top:0,behavior:"smooth"}); };
+      tr.onclick=go; tr.onkeydown=e=>{ if(e.key==="Enter") go(); }; });
     bindMap();
   }
   if (v==="campaigns"){
