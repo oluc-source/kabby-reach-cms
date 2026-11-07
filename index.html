@@ -785,23 +785,26 @@ async function mapStyle(theme){
   S.mapBaseStyle = S.mapBaseStyle || await (await fetch("https://tiles.openfreemap.org/styles/positron")).json();
   const st = JSON.parse(JSON.stringify(S.mapBaseStyle)); const c = MAP_PAL[theme];
   const set=(l,k,v)=>{ l.paint=l.paint||{}; l.paint[k]=v; };
+  const col=(l,v)=>{ const k={fill:"fill-color",line:"line-color",background:"background-color","fill-extrusion":"fill-extrusion-color",circle:"circle-color"}[l.type]; if(k) set(l,k,v); };
   st.layers = st.layers.filter(l => !/shield/.test(l.id) && l.source!=="ne2_shaded");
   for (const l of st.layers){
     const id=l.id;
-    if (l.type==="background") set(l,"background-color",c.bg);
-    else if (l.type==="symbol"){ set(l,"text-color",c.text); set(l,"text-halo-color",c.halo); }
-    else if (/water/.test(id)) set(l, l.type==="line"?"line-color":"fill-color", c.water);
-    else if (/park|wood/.test(id)) set(l,"fill-color",c.park);
-    else if (/residential/.test(id)) set(l,"fill-color",c.resid);
-    else if (/ice|glacier/.test(id)) set(l,"fill-color",c.bg);
-    else if (id==="building") { set(l,"fill-color",c.building); if(l.paint["fill-outline-color"]) set(l,"fill-outline-color",c.building); }
-    else if (l.type==="line" && /casing/.test(id)) set(l,"line-color",c.casing);
-    else if (l.type==="line" && /motorway/.test(id)) set(l,"line-color",c.motorway);
-    else if (l.type==="line" && /major/.test(id)) set(l,"line-color",c.major);
-    else if (l.type==="line" && /minor|path|pier|aeroway|taxiway|runway/.test(id)) set(l,"line-color",c.minor);
-    else if (l.type==="fill" && /aeroway|pier/.test(id)) set(l,"fill-color",c.minor);
-    else if (/rail/.test(id)) set(l,"line-color",c.rail);
-    else if (/boundary/.test(id)) set(l,"line-color",c.boundary);
+    if (l.type==="symbol"){ set(l,"text-color",c.text); set(l,"text-halo-color",c.halo);
+      if (l.layout && /name/.test(JSON.stringify(l.layout["text-field"]||""))) l.layout["text-field"]=["coalesce",["get","name:fr"],["get","name"]]; // libellés en français
+      continue; }
+    if (l.type==="raster") continue;
+    if (l.type==="background") col(l,c.bg);
+    else if (/water/.test(id)) col(l,c.water);
+    else if (/park|wood/.test(id)) col(l,c.park);
+    else if (/residential/.test(id)) col(l,c.resid);
+    else if (/ice|glacier/.test(id)) col(l,c.bg);
+    else if (id==="building") { col(l,c.building); if(l.paint && l.paint["fill-outline-color"]) set(l,"fill-outline-color",c.building); }
+    else if (/casing/.test(id)) col(l,c.casing);
+    else if (/motorway/.test(id)) col(l,c.motorway);
+    else if (/major/.test(id)) col(l,c.major);
+    else if (/minor|path|pier|aeroway|taxiway|runway/.test(id)) col(l,c.minor);
+    else if (/rail/.test(id)) col(l,c.rail);
+    else if (/boundary/.test(id)) col(l,c.boundary);
   }
   return st;
 }
