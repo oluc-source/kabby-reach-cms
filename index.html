@@ -720,8 +720,8 @@ function bindMap(){
     S.mapEl=document.createElement("div"); S.mapEl.className="mapcanvas";
     slot.appendChild(S.mapEl);
     S.map=L.map(S.mapEl,{zoomControl:true}).setView([48.8566,2.3522],11);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{maxZoom:19,subdomains:"abcd",
-      attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'}).addTo(S.map);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,
+      attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">contributeurs OpenStreetMap</a>'}).addTo(S.map);
     S.mapLayer=L.layerGroup().addTo(S.map); S.mapMarkers={}; S.mapFitted=false;
   } else slot.appendChild(S.mapEl);
   setTimeout(()=>S.map.invalidateSize(),0);
