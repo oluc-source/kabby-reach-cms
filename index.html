@@ -573,6 +573,7 @@ function vDisplays(){
       <dl class="specs"><dt>Format</dt><dd>${esc(d.resolution||"1920x1080")} · ${d.orientation==="portrait"?"portrait":"paysage"}</dd>
         <dt>Cadrage</dt><dd>${d.fit==="cover"?"remplir l'écran":"en entier"}</dd>
         <dt>En veille</dt><dd>1 spot, puis accueil ${d.idle_gap??20} s</dd>
+        <dt>Verrouillage</dt><dd>${d.kiosk===false?"désactivé":"écran épinglé · code "+esc(d.exit_pin||"1000")}</dd>
         <dt>Audience</dt><dd>${(Number(d.audience)||1).toLocaleString("fr-FR")} contact${(Number(d.audience)||1)>1?"s":""} / diffusion</dd>
         <dt>Aujourd'hui</dt><dd>${fmtInt(t.plays)} diffusions</dd>
         ${now?`<dt>À l'écran</dt><dd>${esc(now)}</dd>`:""}</dl>
@@ -1124,12 +1125,18 @@ function openDisplayEditor(d){
     </div>
     <div class="field"><label for="dFit">Cadrage des contenus</label><select id="dFit"><option value="contain" ${x.fit!=="cover"?"selected":""}>Afficher en entier (bandes noires si besoin)</option><option value="cover" ${x.fit==="cover"?"selected":""}>Remplir l'écran (bords rognés si besoin)</option></select><p class="hint">Exemple : une vidéo 16:9 sur une tablette 16:10 affiche de fines bandes noires en mode « en entier », ou perd un peu des côtés en mode « remplir ».</p></div>
     <div class="field"><label for="dGap">En veille : écran d'accueil entre deux spots (secondes)</label><input id="dGap" type="number" min="5" max="600" step="1" value="${esc(x.idle_gap??20)}"><p class="hint">Quand personne ne joue, la tablette alterne : 1 spot, puis l'écran d'accueil « Commencer » pendant cette durée, puis 1 spot… (application v6 et suivantes).</p></div>
+    <div class="fgrid">
+      <div class="field"><label for="dKiosk">Verrouillage de la tablette</label><select id="dKiosk"><option value="1" ${x.kiosk!==false?"selected":""}>Écran épinglé (recommandé)</option><option value="0" ${x.kiosk===false?"selected":""}>Désactivé</option></select></div>
+      <div class="field"><label for="dPin">Code de sortie (4 chiffres)</label><input id="dPin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" value="${esc(x.exit_pin||"1000")}"></div>
+    </div>
+    <p class="hint" style="margin-top:-6px">Écran épinglé : les boutons Accueil et Applis récentes sont bloqués ; on ne sort de l'application qu'avec le code de sortie (menu → Quitter). Application v11 et suivantes ; le code est appliqué à la synchronisation suivante.</p>
     <div class="field"><label for="dAud">Audience par diffusion (contacts)</label><input id="dAud" type="number" min="0" step="0.1" value="${esc(x.audience??1)}"><p class="hint">Ex. 1,4 passager en moyenne par trajet taxi. Impressions = diffusions × audience.</p></div>
   </form>
   <footer><button class="btn" data-close>Annuler</button><button class="btn pri" id="dSave">Enregistrer</button></footer>`);
   const save=async()=>{
     const name=$("#dName").value.trim(); if(!name){ $("#dName").focus(); toast("Donnez un nom à l'écran"); return; }
-    const data={name, location:$("#dLoc").value.trim(), orientation:$("#dOr").value, resolution:$("#dRes").value.trim()||"1920x1080", fit:$("#dFit").value, idle_gap:Math.max(5,Math.min(600,parseInt($("#dGap").value,10)||20)), audience:Math.max(0,parseFloat($("#dAud").value)||1)};
+    const data={name, location:$("#dLoc").value.trim(), orientation:$("#dOr").value, resolution:$("#dRes").value.trim()||"1920x1080", fit:$("#dFit").value, idle_gap:Math.max(5,Math.min(600,parseInt($("#dGap").value,10)||20)), audience:Math.max(0,parseFloat($("#dAud").value)||1), kiosk:$("#dKiosk").value!=="0", exit_pin:$("#dPin").value.trim()};
+    if(!/^[0-9]{4}$/.test(data.exit_pin)){ $("#dPin").focus(); toast("Le code de sortie doit comporter 4 chiffres"); return; }
     try{ if(d) await q(S.sb.from("displays").update(data).eq("id",d.id)); else await q(S.sb.from("displays").insert(data)); closeModal(); toast(d?"Écran mis à jour":"Écran ajouté"); loadAll(); }catch(e){fail(e);}
   };
   $("#dSave").onclick=save; $("#dForm").onsubmit=e=>{e.preventDefault(); save();};
