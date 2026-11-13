@@ -94,6 +94,11 @@ main{padding-block:28px 60px;padding-left:max(28px,env(safe-area-inset-left,0px)
 .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--panel-2);color:var(--muted);white-space:nowrap}
 .pill.on{color:var(--good);background:color-mix(in srgb,var(--good) 14%,transparent)}
 .pill.off{color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,transparent)}
+.pill.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+.logs{font-size:13px} .logs td{vertical-align:top} .logs .lmsg{word-break:break-word} .logs details summary{cursor:pointer;color:var(--muted);font-size:12px}
+.logs pre{white-space:pre-wrap;word-break:break-all;font-size:11px;margin:6px 0 0;max-height:220px;overflow:auto;background:var(--panel-2);padding:8px;border-radius:8px}
+.logs tr.l-error td:first-child{box-shadow:inset 3px 0 0 var(--bad)} .logs tr.l-warn td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
+.logbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
 .pill.vid{color:var(--neon);background:color-mix(in srgb,var(--neon) 12%,transparent)}
 .pill.img{color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
 .pill .dot{width:6px;height:6px}
@@ -410,6 +415,7 @@ async function loadAll(){
       q(sb.from("campaigns").select("*").order("start_date",{ascending:false})).catch(e=>{ console.warn("campagnes indisponibles", e); return []; })
     ]);
     Object.assign(S,{media,playlists,displays,devices,campaigns,loaded:true,status:"ready"}); setSync(true,"Synchronisé");
+    q(sb.rpc("logs_summary")).then(x=>{ S.logSum=x||{}; if(currentView()==="displays") render(); }).catch(()=>{});
   }catch(e){ console.error(e); S.status="error"; setSync(false,"Connexion perdue"); }
   render(); if(ED && $("#libList")) drawLib();
 }
@@ -557,8 +563,9 @@ function playerBox(d){
   const c=dev.cache||{};
   return `<div class="pbox"><div class="pbox-h"><span class="pid">${esc(fmtPid(dev.player_id))}</span>${devOnline(dev)?onPill:`<span class="pill off" title="Dernier signal">${esc(fmtAgo(dev.last_seen))}</span>`}</div>
     <div class="hint">${esc(devLabel(dev))}${dev.info?.version?" · "+esc(dev.info.version):""}</div>
+    ${(()=>{ const ls=S.logSum?.[dev.player_id]; return ls&&(+ls.errors||+ls.warns)?`<div class="hint">Journal 24 h : ${+ls.errors?`<span class="pill off">${ls.errors} erreur${ls.errors>1?"s":""}</span> `:""}${+ls.warns?`<span class="pill warn">${ls.warns} alerte${ls.warns>1?"s":""}</span>`:""}</div>`:""; })()}
     <div class="hint">Contenus en cache : <span class="mono">${c.ready??0}/${c.total??0}</span> · ${fmtBytes(c.bytes)}${c.off?" · cache local indisponible":""}${c.offline?" · fonctionne hors ligne":""}</div>
-    <div class="pbox-a"><button class="btn sm" data-cmd="identify" data-dev="${esc(dev.player_id)}">Identifier</button><button class="btn sm" data-cmd="resync" data-dev="${esc(dev.player_id)}">Resynchroniser</button><button class="btn sm" data-cmd="reload" data-dev="${esc(dev.player_id)}">Redémarrer</button><button class="btn sm ghost danger" data-unpair="${esc(dev.player_id)}">Dissocier</button></div></div>`;
+    <div class="pbox-a"><button class="btn sm" data-cmd="identify" data-dev="${esc(dev.player_id)}">Identifier</button><button class="btn sm" data-cmd="resync" data-dev="${esc(dev.player_id)}">Resynchroniser</button><button class="btn sm" data-cmd="reload" data-dev="${esc(dev.player_id)}">Redémarrer</button><button class="btn sm" data-logs="${esc(dev.player_id)}">Journal</button><button class="btn sm ghost danger" data-unpair="${esc(dev.player_id)}">Dissocier</button></div></div>`;
 }
 function vDisplays(){
   const today=dayKey(); const r=rep(today,today); const byD=Object.fromEntries((r?.displays||[]).map(x=>[x.display_id,x]));
@@ -684,6 +691,35 @@ async function openRotation(d){
   box.innerHTML = `${camps.length?`<div class="tbl-wrap"><table><thead><tr><th>Campagne</th><th>État</th><th class="n">Spots par tour</th><th class="n">Rythme</th></tr></thead><tbody>${camps.map(c=>`<tr><td>${esc(c.name)}</td><td>${st[c.status]||c.status}</td><td class="n">${c.spots}</td><td class="n">${c.status==="on_air"?(+c.pace===1?"normal":"×"+(+c.pace).toFixed(2)):"—"}</td></tr>`).join("")}</tbody></table></div><p class="hint">Rythme supérieur à 1 : la campagne est en retard sur son objectif et passe plus souvent ; inférieur à 1 : elle est en avance.</p>`:`<p class="hint">Aucune campagne à l'antenne aujourd'hui sur cet écran : il diffuse sa programmation habituelle.</p>`}
     <div class="seq" style="margin-top:8px"><h3><span>Ordre de passage</span><span>${items.length} éléments · un tour = ${fmtClock(total)}</span></h3><div class="seq-list" style="max-height:340px">${rows||'<div class="empty">Rien à diffuser : programmez une playlist ou une campagne.</div>'}</div></div>`;
 }
+
+/* Journal d'un player : événements remontés par la tablette (application v13 et suivantes) */
+const LOG_TAGS={app:"Appli",video:"Vidéo",sync:"Synchro",download:"Téléchargement",net:"Réseau",game:"Jeu",kiosk:"Verrouillage",cmd:"Commande",crash:"Plantage",console:"Console",promise:"Promesse",nav:"Navigation"};
+const fmtLogTime = t => { const d=new Date(t); return d.toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"}); };
+async function openLogs(pid){
+  const dev=S.devices.find(v=>v.player_id===pid); const disp=dev&&S.displays.find(d=>d.id===dev.display_id);
+  ED={logs:pid, level:"all", tag:"all", text:"", rows:[]};
+  openModal(`<header><div><h2>Journal · ${esc(fmtPid(pid))}${disp?" · "+esc(disp.name):""}</h2><p>Événements envoyés par la tablette (démarrage, lecture vidéo, erreurs, synchro, réseau, jeu…). Conservés 30 jours. Mis à jour toutes les 10 s.</p></div><button class="icon-btn" data-close aria-label="Fermer">${ICONS.x}</button></header>
+    <div class="body"><div class="logbar">
+      <select class="inp" id="lgLevel" style="width:auto" aria-label="Niveau"><option value="all">Tous les niveaux</option><option value="warn">Alertes et erreurs</option><option value="error">Erreurs seulement</option><option value="nodebug">Sans les détails de navigation</option></select>
+      <select class="inp" id="lgTag" style="width:auto" aria-label="Catégorie"><option value="all">Toutes les catégories</option>${Object.entries(LOG_TAGS).map(([k,l])=>`<option value="${k}">${l}</option>`).join("")}</select>
+      <input class="inp" id="lgText" placeholder="Rechercher (nom de vidéo, message…)" style="flex:1;min-width:160px">
+      <button class="btn sm" id="lgAsk">Demander l'envoi maintenant</button><button class="btn sm" id="lgCsv">${ICONS.dl}CSV</button>
+    </div><div class="tbl-wrap" style="max-height:60vh;overflow:auto"><table class="logs"><thead><tr><th>Heure</th><th>Niveau</th><th>Catégorie</th><th>Événement</th></tr></thead><tbody id="lgRows"><tr><td colspan="4" class="empty">Chargement…</td></tr></tbody></table></div>
+    <p class="hint" id="lgFoot"></p></div><footer><button class="btn pri" data-close>Fermer</button></footer>`, true);
+  const redraw=()=>drawLogs(); $("#lgLevel").onchange=e=>{ED.level=e.target.value; redraw();}; $("#lgTag").onchange=e=>{ED.tag=e.target.value; redraw();}; $("#lgText").oninput=e=>{ED.text=e.target.value.toLowerCase(); redraw();};
+  $("#lgAsk").onclick=()=>sendCmd(pid,"logs"); $("#lgCsv").onclick=()=>exportLogsCsv(pid);
+  const load=async()=>{ if(!ED||ED.logs!==pid) return; try{ ED.rows=await q(S.sb.from("player_logs").select("at,level,tag,message,data,app_version").eq("device_id",pid).order("at",{ascending:false}).order("id",{ascending:false}).limit(1000)); drawLogs(); }catch(e){ const b=$("#lgRows"); if(b) b.innerHTML=`<tr><td colspan="4" class="empty">Journal indisponible : ${esc(String(e.message||e).slice(0,120))}</td></tr>`; } };
+  await load(); const t=setInterval(()=>{ if(!ED||ED.logs!==pid||!$("#lgRows")){ clearInterval(t); return; } load(); },10000);
+}
+function filteredLogs(){ const lv={error:["error"],warn:["error","warn"]}[ED.level];
+  return (ED.rows||[]).filter(r=>(!lv||lv.includes(r.level)) && (ED.level!=="nodebug"||r.level!=="debug") && (ED.tag==="all"||r.tag===ED.tag) && (!ED.text || (r.message+" "+JSON.stringify(r.data||{})).toLowerCase().includes(ED.text))); }
+function drawLogs(){ const b=$("#lgRows"); if(!b||!ED) return; const rows=filteredLogs();
+  const pill=l=>l==="error"?'<span class="pill off">Erreur</span>':l==="warn"?'<span class="pill warn">Alerte</span>':l==="debug"?'<span class="pill">Détail</span>':'<span class="pill on">Info</span>';
+  b.innerHTML = rows.slice(0,500).map(r=>`<tr class="l-${esc(r.level)}"><td class="mono" style="white-space:nowrap">${esc(fmtLogTime(r.at))}</td><td>${pill(r.level)}</td><td>${esc(LOG_TAGS[r.tag]||r.tag)}</td><td class="lmsg">${esc(r.message)}${r.data&&Object.keys(r.data).length?`<details><summary>détails</summary><pre>${esc(JSON.stringify(r.data,null,1))}</pre></details>`:""}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">${(ED.rows||[]).length?"Aucun événement pour ce filtre.":"Aucun événement reçu. Le journal fonctionne à partir de l'application v13 ; la tablette envoie ses événements toutes les minutes."}</td></tr>`;
+  const f=$("#lgFoot"); if(f){ const last=(ED.rows||[])[0]; f.textContent=`${rows.length} événement(s) affiché(s) sur ${(ED.rows||[]).length} (1 000 derniers au maximum)${last?` · version de l'appli : ${last.app_version||"?"}`:""}`; } }
+function exportLogsCsv(pid){ const rows=filteredLogs(); const lines=[["Heure","Niveau","Catégorie","Événement","Détails","Version"]].concat(rows.map(r=>[new Date(r.at).toLocaleString("fr-FR"), r.level, LOG_TAGS[r.tag]||r.tag, r.message, r.data?JSON.stringify(r.data):"", r.app_version||""]));
+  const csv="\ufeff"+lines.map(r=>r.map(x=>{ const t=String(x??""); return /[;"\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t; }).join(";")).join("\n");
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"})); a.download=`journal-${pid}-${dayKey()}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
 
 /* Bilan d'une campagne (détail par écran et par jour) */
 function openCampaignReport(id, from=null, to=null){
@@ -971,6 +1007,7 @@ function bindView(v){
     m.querySelectorAll("[data-pair-disp]").forEach(b=>b.onclick=()=>openPair({displayId:b.dataset.pairDisp}));
     m.querySelectorAll("[data-pair-dev]").forEach(b=>b.onclick=()=>openPair({playerId:b.dataset.pairDev}));
     m.querySelectorAll("[data-cmd]").forEach(b=>b.onclick=()=>sendCmd(b.dataset.dev,b.dataset.cmd));
+    m.querySelectorAll("[data-logs]").forEach(b=>b.onclick=()=>openLogs(b.dataset.logs));
     m.querySelectorAll("[data-unpair]").forEach(b=>b.onclick=()=>confirmBox(`Dissocier le player ${fmtPid(b.dataset.unpair)} ?`,"La tablette arrête la diffusion et réaffiche son Player ID.",()=>unpair(b.dataset.unpair),"Dissocier"));
     m.querySelectorAll("[data-forget]").forEach(b=>b.onclick=()=>confirmBox(`Oublier le player ${fmtPid(b.dataset.forget)} ?`,"S'il est encore allumé, il réapparaîtra dans la liste d'attente à sa prochaine synchronisation.",async()=>{ try{ await q(S.sb.from("devices").delete().eq("player_id",b.dataset.forget)); toast("Player oublié"); loadAll(); }catch(e){fail(e,"La suppression");} },"Oublier"));
     m.querySelectorAll("[data-edit-d]").forEach(b=>b.onclick=()=>openDisplayEditor(dispById(b.dataset.editD)));
@@ -1240,7 +1277,7 @@ async function savePlaylist(){
 
 /* ---------- players ---------- */
 async function sendCmd(pid,type){
-  const label={identify:"Identifier",resync:"Resynchroniser",reload:"Redémarrer"}[type];
+  const label={identify:"Identifier",resync:"Resynchroniser",reload:"Redémarrer",logs:"Envoyer le journal"}[type];
   try{ await q(S.sb.from("devices").update({command:{type,at:Date.now()}}).eq("player_id",pid)); toast(`« ${label} » envoyé à ${fmtPid(pid)} : exécuté à la prochaine synchro (≤ 20 s)`); }catch(e){fail(e,"L'envoi");}
 }
 async function unpair(pid){
