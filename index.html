@@ -466,7 +466,7 @@ function barChart(series, opts={}){
   const every = Math.ceil(series.length/(opts.maxLabels||10));
   series.forEach((s,i)=>{
     const x=L+i*bw, w=Math.max(2,bw*0.62), cx=x+(bw-w)/2;
-    g+=`<rect x="${cx}" y="${y(s.a)}" width="${w}" height="${Math.max(0,T+ih-y(s.a))}" rx="2" fill="color-mix(in srgb, var(--accent) 30%, transparent)"><title>${esc(s.label)} : ${fmtInt(s.a)} diffusions</title></rect>`;
+    g+=`<rect x="${cx}" y="${y(s.a)}" width="${w}" height="${Math.max(0,T+ih-y(s.a))}" rx="2" fill="color-mix(in srgb, var(--accent) 30%, transparent)"><title>${esc(s.label)} : ${fmtInt(s.a)} ${opts.unit||"diffusions"}</title></rect>`;
     if (s.b!=null) g+=`<rect x="${cx}" y="${y(s.b)}" width="${w}" height="${Math.max(0,T+ih-y(s.b))}" rx="2" fill="var(--accent)"><title>${esc(s.label)} : ${fmtInt(s.b)} complètes</title></rect>`;
     if (i%every===0) g+=`<text x="${x+bw/2}" y="${H-9}" text-anchor="middle" font-size="10" fill="var(--muted)" font-family="JetBrains Mono,monospace">${esc(s.label)}</text>`;
   });
@@ -909,6 +909,10 @@ function vReports(){
   const hb=Object.fromEntries((r?.hours||[]).map(h=>[h.hour,+h.plays]));
   const hours = Array.from({length:24},(_,h)=>({label:pad(h)+"h", a:hb[h]||0}));
   const loading = !r ? '<tr><td colspan="7" class="empty">Chargement…</td></tr>' : null;
+  const gk=`games|${from}|${to}|${S.repDisplay}`; const gr=S.camp[gk]; if(!gr || (!gr.pending && Date.now()-gr.at>30000)) loadCamp(gk,"report_games",{p_from:from,p_to:to,p_display:S.repDisplay==="all"?null:S.repDisplay}); const g=gr?.data||null; S.gamesRep=g;
+  const gt=g?.totals||{}; const gBy=Object.fromEntries((g?.days||[]).map(x=>[x.day,+x.games]));
+  const gDays=Array.from({length:Math.max(S.range,2)},(_,i)=>{ const dk=dayKey(addDays(-(Math.max(S.range,2)-1-i))); return {label:fmtDay(dk), a:gBy[dk]||0}; });
+  const grows=(g?.displays||[]).map(v=>{ const d=dispById(v.display_id); return `<tr><td>${esc(d?.name||"Écran non associé")}</td><td>${esc(d?.location||"—")}</td><td class="n"><b>${fmtInt(v.games)}</b></td><td class="n">${fmtInt(v.finished)}</td><td class="n">${fmtInt(v.winners)}</td><td class="n">${fmtInt(v.quizzes)}</td></tr>`; }).join("");
   const cr=campRep(from,to,S.repDisplay); const crBy=Object.fromEntries((cr||[]).map(x=>[x.campaign_id,x]));
   const crows=S.campaigns.filter(c=>c.start_date<=to && c.end_date>=from).map(c=>{ const v=crBy[c.id]||T0; const pc=+c.goal_impressions?` · ${Math.min(999,v.impressions/c.goal_impressions*100).toFixed(0)} % de l'objectif`:"";
     return `<tr class="click" data-camp-rep="${esc(c.id)}" tabindex="0"><td><b>${esc(c.name)}</b><div class="hint">${esc(c.advertiser||"—")}</div></td><td>${campPill(c)}</td><td class="mono">${fmtDay(c.start_date)} → ${fmtDay(c.end_date)}</td><td class="n">${(c.display_ids||[]).length}</td><td class="n">${fmtInt(v.plays)}</td><td class="n">${fmtInt(v.complete)}</td><td class="n"><b>${fmtInt(v.impressions)}</b><div class="hint">${pc.replace(" · ","")}</div></td></tr>`; }).join("");
@@ -926,6 +930,18 @@ function vReports(){
     <section class="panel"><div class="ph"><h2>Diffusions par jour</h2>${legend}</div>${barChart(daySeries(r,Math.max(S.range,2)),{aria:"Diffusions par jour",maxLabels:10})}</section>
     <section class="panel"><div class="ph"><h2>Par heure</h2><p>cumul de la période</p></div>${barChart(hours,{aria:"Diffusions par heure",maxLabels:8})}</section>
   </div>
+  <section class="panel"><div class="ph"><h2>Jeu : parties de quiz</h2><p>une partie = un passager qui appuie sur « Commencer » et joue au moins un quiz (application v12 et suivantes)</p><button class="btn" id="gamesCsv">${ICONS.dl}CSV</button></div>
+    <div class="kpis">
+      <div class="kpi hl"><span class="lbl">Parties jouées</span><span class="val num">${g?fmtInt(gt.games):"…"}</span><span class="sub">${g?fmtInt(gt.quizzes)+" quiz terminés":"chargement"}</span></div>
+      <div class="kpi"><span class="lbl">Parties terminées</span><span class="val num">${g?fmtInt(gt.finished):"…"}</span><span class="sub">${g&&+gt.games?(gt.finished/gt.games*100).toFixed(0)+" % des parties":"tous les quiz joués"}</span></div>
+      <div class="kpi"><span class="lbl">Gagnants inscrits</span><span class="val num">${g?fmtInt(gt.winners):"…"}</span><span class="sub">formulaire nom + téléphone</span></div>
+      <div class="kpi"><span class="lbl">Engagement moyen</span><span class="val num">${g?String(gt.avg_quizzes).replace(".",","):"…"}</span><span class="sub">quiz par partie · ${g?String(gt.avg_minutes).replace(".",","):"…"} min</span></div>
+    </div>
+    <div class="grid2">
+      <div>${barChart(gDays,{aria:"Parties par jour",maxLabels:10,unit:"parties"})}</div>
+      <div class="tbl-wrap"><table><thead><tr><th>Écran</th><th>Emplacement</th><th class="n">Parties</th><th class="n">Terminées</th><th class="n">Gagnants</th><th class="n">Quiz</th></tr></thead><tbody>${!g?'<tr><td colspan="6" class="empty">Chargement…</td></tr>':grows||'<tr><td colspan="6" class="empty">Aucune partie sur la période.</td></tr>'}</tbody></table></div>
+    </div>
+  </section>
   <section class="panel"><div class="ph"><h2>Par campagne</h2><p>impressions sur la période · cliquez une ligne pour le détail par écran et par jour</p></div><div class="tbl-wrap"><table><thead><tr><th>Campagne</th><th>Statut</th><th>Dates</th><th class="n">Écrans</th><th class="n">Diffusions</th><th class="n">Complètes</th><th class="n">Impressions</th></tr></thead><tbody>${!cr?'<tr><td colspan="7" class="empty">Chargement…</td></tr>':crows||'<tr><td colspan="7" class="empty">Aucune campagne sur cette période. Créez-en une dans l\'onglet Campagnes.</td></tr>'}</tbody></table></div></section>
   <section class="panel"><div class="ph"><h2>Top médias</h2><p>preuve de diffusion par création</p></div><div class="tbl-wrap"><table><thead><tr><th>Média</th><th>Type</th><th class="n">Diffusions</th><th class="n">Complètes</th><th class="n">Taux</th><th class="n">Impressions</th><th class="n">Durée</th></tr></thead><tbody>${loading||mrows||'<tr><td colspan="7" class="empty">Aucune diffusion sur la période. Les données apparaissent dès qu\'un player tourne.</td></tr>'}</tbody></table></div></section>
   <section class="panel"><div class="ph"><h2>Par écran</h2></div><div class="tbl-wrap"><table><thead><tr><th>Écran</th><th>Emplacement</th><th class="n">Diffusions</th><th class="n">Complètes</th><th class="n">Impressions</th><th class="n">Durée</th></tr></thead><tbody>${loading||drows||'<tr><td colspan="6" class="empty">Aucune donnée sur la période.</td></tr>'}</tbody></table></div></section>`;
@@ -983,6 +999,7 @@ function bindView(v){
     $("#repR").onchange=e=>{S.range=+e.target.value; render();};
     $("#repD").onchange=e=>{S.repDisplay=e.target.value; render();};
     $("#csv").onclick=exportCsv;
+    $("#gamesCsv").onclick=exportGamesCsv;
   }
 }
 
@@ -1249,6 +1266,15 @@ function openPair({playerId,displayId}){
 }
 
 /* ---------- CSV ---------- */
+function exportGamesCsv(){
+  const g=S.gamesRep; if(!g){ toast("Données en cours de chargement"); return; }
+  const lines=[["Écran","Emplacement","Parties","Terminées","Gagnants","Quiz terminés"]];
+  (g.displays||[]).forEach(v=>{ const d=dispById(v.display_id); lines.push([d?.name||"Écran non associé", d?.location||"", v.games, v.finished, v.winners, v.quizzes]); });
+  lines.push([]); lines.push(["Jour","Parties","Terminées","Quiz terminés"]);
+  (g.days||[]).forEach(v=>lines.push([v.day, v.games, v.finished, v.quizzes]));
+  const csv="\ufeff"+lines.map(r=>r.map(x=>{ const t=String(x??""); return /[;"\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t; }).join(";")).join("\n");
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"})); a.download=`kabby-parties-${dayKey()}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
 async function exportCsv(){
   const to=dayKey(), from=dayKey(addDays(-(S.range-1)));
   try{
