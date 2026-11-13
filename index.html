@@ -525,7 +525,7 @@ function vMedia(){
     <div class="kpi"><span class="lbl">Images</span><span class="val num">${imgs.length}</span><span class="sub">durée réglée dans la playlist</span></div>
     <div class="kpi"><span class="lbl">Stockage</span><span class="val num">${fmtBytes(bytes)}</span><span class="sub">taille max par fichier selon votre offre Supabase</span></div>
   </div>
-  <label class="drop" id="drop" for="fileIn">${ICONS.up}<strong>Glissez vos fichiers ici ou cliquez pour parcourir</strong><span>MP4, WebM, JPG, PNG, WebP, GIF · les vidéos sont adaptées automatiquement aux tablettes (H.264, 1920×1080 max)</span></label>
+  <label class="drop" id="drop" for="fileIn">${ICONS.up}<strong>Glissez vos fichiers ici ou cliquez pour parcourir</strong><span>MP4, WebM, JPG, PNG, WebP, GIF · vidéos : 300 Mo et 3 min maximum, adaptées automatiquement aux tablettes (H.264, 1920×1080, 12 Mbit/s max)</span></label>
   <input type="file" id="fileIn" accept="video/mp4,video/webm,image/jpeg,image/png,image/webp,image/gif" multiple hidden>
   ${S.uploads.length?`<div class="uploads">${S.uploads.map(u=>`<div class="up">${u.state==="busy"?'<span class="spin"></span>':u.state==="ok"?'<span class="pill on">OK</span>':'<span class="pill off">Erreur</span>'}<span class="name">${esc(u.name)}</span><span class="hint">${esc(u.msg||fmtBytes(u.size))}</span></div>`).join("")}</div>`:""}
   <section class="panel"><div class="ph"><h2>Bibliothèque</h2>
@@ -1029,10 +1029,15 @@ async function inspectVideo(file){
   out.audio = s.indexOf("mp4a")>0;
   return out;
 }
-function videoNeedsConversion(meta, insp){
+// Limites vidéo pour les tablettes : au-delà de MAX_VIDEO_MBPS la vidéo est recompressée (env. 6 Mbit/s),
+// au-delà de MAX_VIDEO_MB ou MAX_VIDEO_SEC le fichier est refusé.
+const MAX_VIDEO_MBPS = 12, MAX_VIDEO_MB = 300, MAX_VIDEO_SEC = 180;
+function videoMbps(size, duration){ return duration>0 ? size*8/duration/1e6 : 0; }
+function videoNeedsConversion(meta, insp, size=0){
   const big = meta.width && meta.height && targetSize(meta.width, meta.height).scaled;
   const badCodec = !insp.mp4 || !insp.avc || ![66,77,100].includes(insp.profile) || (insp.level||0) > 41;
-  return { needed: !!(big || badCodec), reason: big ? `${meta.width}×${meta.height} trop grand` : badCodec ? (insp.avc ? `profil H.264 niveau ${(insp.level||0)/10} trop élevé` : "codec non compatible") : "" };
+  const mbps = videoMbps(size, meta.duration), heavy = mbps > MAX_VIDEO_MBPS;
+  return { needed: !!(big || badCodec || heavy), reason: big ? `${meta.width}×${meta.height} trop grand` : badCodec ? (insp.avc ? `profil H.264 niveau ${(insp.level||0)/10} trop élevé` : "codec non compatible") : heavy ? `débit ${mbps.toFixed(0)} Mbit/s trop élevé` : "" };
 }
 function pickRecorderType(withAudio){
   const c=[withAudio?"video/mp4;codecs=avc1.4d0028,mp4a.40.2":null,"video/mp4;codecs=avc1.4d0028","video/mp4;codecs=avc1.42E028","video/mp4"].filter(Boolean);
@@ -1080,8 +1085,10 @@ async function handleFiles(list){
     try{
       let info=await probe(file), body=file, type=file.type, name=file.name, note="";
       if (file.type.startsWith("video")){
+        if (file.size > MAX_VIDEO_MB*1048576){ u.state="err"; u.msg=`Vidéo trop lourde (${(file.size/1048576).toFixed(0)} Mo, maximum ${MAX_VIDEO_MB} Mo)`; render(); continue; }
+        if ((info.duration||0) > MAX_VIDEO_SEC){ u.state="err"; u.msg=`Vidéo trop longue (${Math.round(info.duration)} s, maximum ${MAX_VIDEO_SEC} s)`; render(); continue; }
         u.msg="Analyse du format…"; render();
-        const insp=await inspectVideo(file); const chk=videoNeedsConversion(info, insp);
+        const insp=await inspectVideo(file); const chk=videoNeedsConversion(info, insp, file.size);
         if (chk.needed){
           u.msg=`Adaptation pour tablette (${chk.reason})… gardez cet onglet affiché`; render();
           const r=await transcodeVideo(file, info, insp, (t,dur)=>{ const m=`Adaptation pour tablette : ${Math.round(t)}/${Math.round(dur||0)} s · gardez cet onglet affiché`; if(u.msg!==m){ u.msg=m; render(); } });
